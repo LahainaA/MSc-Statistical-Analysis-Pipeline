@@ -1,0 +1,11 @@
+# Ignore Data Files
+*.csv
+*.xls
+*.xlsx
+*.RData
+*.rds
+
+# Ignore System Files
+.DS_Store
+.Rhistory
+.Rproj.user
