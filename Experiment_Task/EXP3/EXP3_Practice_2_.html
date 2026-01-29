@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Experiment 3: Practice 2</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f0f2f5;
+            color: #1a1b1c;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 70vw;
+            padding: 60px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            gap: 15px;
+        }
+
+        header h1 {
+            font-size: 24px;
+            margin: 0;
+            color: #1a1b1c;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+        }
+
+        input,
+        button {
+            padding: 10px 14px;
+            border: 1px solid #ced4da;
+            background: #fff;
+            border-radius: 8px;
+            color: #343a40;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        input:focus,
+        button:focus {
+            outline: none;
+            border-color: #4c6ef5;
+            box-shadow: 0 0 0 2px rgba(76, 110, 245, 0.2);
+        }
+
+        input[type="number"] {
+            width: 70px;
+        }
+
+        input[readonly] {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        button#downloadBtn:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+            color: #adb5bd;
+        }
+
+        #message {
+            text-align: center;
+            margin: 10px 0;
+            color: #495057;
+            min-height: 22px;
+            font-size: 15px;
+        }
+
+        canvas {
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 650px;
+            height: auto;
+            aspect-ratio: 4 / 3;
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 25px 20px rgba(0, 0, 0, 0.05);
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        #nextTrialBtn {
+            display: none;
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #4c6ef5;
+            color: white;
+            border: none;
+            z-index: 1100;
+        }
+
+        #fullscreenOverlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+        }
+
+        #enterFullscreen {
+            padding: 16px 28px;
+            font-size: 18px;
+            border: none;
+            background: #4c6ef5;
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        #overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(248, 249, 250, 0.9);
+            z-index: 999;
+        }
+
+        #overlay .card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 16px;
+            padding: 24px 28px;
+            width: 90%;
+            max-width: 520px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        #overlay h3 {
+            margin: 0 0 8px;
+            font-size: 22px;
+        }
+
+        #overlay p {
+            margin: 0 0 16px;
+            line-height: 1.5;
+            color: #495057;
+        }
+
+        #continueBtn {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #4c6ef5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        #fsExitOverlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+        }
+
+        #fsExitOverlay .card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 16px;
+            padding: 24px 28px;
+            width: 90%;
+            max-width: 520px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        #returnFullscreenBtn {
+            margin-top: 16px;
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #4c6ef5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+    <script type="text/javascript" src="imtScripts.js"></script>
+
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Practice 2</h1>
+            <div class="controls">
+                <label style="display: none;">Trials <input id="trialsInput" type="number" value="5" readonly></label>
+                <label style="display: none;">Duration (sec) <input id="tInput" type="number" min="1" step="0.1"
+                        value="3.7"></label>
+                <label style="display: none;">Blank (ms) <input id="blankInput" type="number" min="0" step="50"
+                        value="250" readonly></label>
+                <label style="display: none;">Amplitude <input id="ampInput" type="number" min="0.025" max="0.25"
+                        step="0.025" value="0.05"></label>
+                <label style="display: none;">Cycles <input id="cyclesInput" type="number" min="1" step="1"
+                        value="3"></label>
+                <button id="downloadBtn" disabled style="display: none;">Download Data</button>
+            </div>
+        </header>
+
+        <div id="message">Click "Start Experiment" to begin.</div>
+        <canvas id="canvas" tabindex="0"></canvas>
+        <button id="nextTrialBtn">Next Trial</button>
+    </div>
+
+    <div id="fullscreenOverlay">
+        <button id="enterFullscreen">Start Practice 2</button>
+    </div>
+
+    <div id="overlay">
+        <div class="card">
+            <h3 id="ovlTitle">Practice 2: Instructions</h3>
+            <p id="ovlBody"></p>
+            <button id="continueBtn">Continue</button>
+        </div>
+    </div>
+
+    <div id="fsExitOverlay" aria-live="polite">
+        <div class="card">
+            <h3>Practice Paused.</h3>
+            <p>Full-screen mode is required. Please click below to continue the practice.</p>
+            <button id="returnFullscreenBtn">Return to Fullscreen</button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const msg = document.getElementById('message');
+        const overlay = document.getElementById('overlay');
+        const ovlTitle = document.getElementById('ovlTitle');
+        const ovlBody = document.getElementById('ovlBody');
+        const continueBtn = document.getElementById('continueBtn');
+        const nextTrialBtn = document.getElementById('nextTrialBtn');
+        const tInput = document.getElementById('tInput');
+        const ampInput = document.getElementById('ampInput');
+        const cyclesInput = document.getElementById('cyclesInput');
+
+        const fsExitOverlay = document.getElementById('fsExitOverlay');
+        const returnFullscreenBtn = document.getElementById('returnFullscreenBtn');
+
+        // --- Canvas and Geometry Scaling ---
+        let canvasWidth, canvasHeight, midX, midY, pathWidth, pathHeight;
+
+        // --- PARAMETERS ---
+        const FIXED_BLANK_MS = 250;
+        const CLICK_SNAP_CM = 0.5;
+        let CLICK_SNAP_PX;
+
+        // --- IMT Configuration ---
+        var sessionStart = pad(Date.now(), 16);
+        var sessionKey = pad(Math.floor(Math.random() * 1000), 4);
+        var uniqueID = sessionStart + "_" + sessionKey;
+        var thisParam1, thisParam2, thisParam3, thisParam4;
+        var sourceString = "&SOURCE=0", dataString = "&DATA=1";
+
+        if (thisParam1 = getUrlParameter('ID')) {
+            sessionStart = thisParam1;
+        } else {
+            sessionStart = pad(Date.now(), 16);
+        }
+
+        if (thisParam2 = getUrlParameter('SESSION')) {
+            sessionKey = thisParam2;
+        } else {
+            sessionKey = Math.floor(Math.random() * 1000);
+            sessionKey = pad(sessionKey, 4);
+        }
+
+        if ((thisParam3 = getUrlParameter('SOURCE')) == "PROLIFIC") {
+            sourceString = "&SOURCE=PROLIFIC";
+        } else {
+            sourceString = "&SOURCE=0";
+        }
+
+        if (thisParam4 = getUrlParameter('DATA')) {
+            if (thisParam4 == 0) {
+                dataString = "&DATA=0";
+            } else {
+                dataString = "&DATA=1";
+            }
+        } else {
+            dataString = "&DATA=1";
+        }
+
+        uniqueID = sessionStart + "_" + sessionKey;
+
+        // Freeze canvas size during experiment
+        let FREEZE_CANVAS_SIZE = false;
+
+        function cmToPixels(cm) {
+            const inches = cm / 2.54;
+            const dpi = 96;
+            return inches * dpi * window.devicePixelRatio;
+        }
+
+        function resizeCanvas() {
+            if (FREEZE_CANVAS_SIZE) return;
+
+            const canvasContainer = document.querySelector('.container');
+            const containerWidth = canvasContainer.clientWidth;
+            const cssMaxWidth = 650;
+            const size = Math.max(300, Math.min(containerWidth, cssMaxWidth));
+            const aspectRatio = 4 / 3;
+
+            canvas.width = size * window.devicePixelRatio;
+            canvas.height = (size / aspectRatio) * window.devicePixelRatio;
+
+            canvas.style.width = `${size}px`;
+            canvas.style.height = `${size / aspectRatio}px`;
+
+            canvasWidth = canvas.width;
+            canvasHeight = canvas.height;
+            midX = canvasWidth / 2;
+            midY = canvasHeight / 2;
+
+            const pathLength = Math.min(canvasWidth, canvasHeight) * 0.99;
+            pathWidth = pathLength;
+            pathHeight = pathWidth;
+
+            SINE_AMPLITUDE = parseFloat(ampInput.value);
+            SINE_CYCLES = parseFloat(cyclesInput.value);
+
+            CLICK_SNAP_PX = cmToPixels(CLICK_SNAP_CM);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Parameters ---
+        const dotR = 6 * window.devicePixelRatio;
+        let DURATION_SEC, SINE_AMPLITUDE, SINE_CYCLES;
+        const NORM_45 = 1 / Math.sqrt(2);
+        const RESPONSE_WINDOW_MS = 6000;
+        const INTER_TRIAL_BLANK_MS = 500;
+        const PRE_STIMULUS_DELAY = { min: 500, max: 1000 };
+        const TARGET_FPS = 60;
+        const FRAME_INTERVAL = 1000 / TARGET_FPS;
+        let BASE_SPEED_PX_PER_MS = 0;
+
+        // --- Arc Length and Path Integration Parameters ---
+        let arcLengthCache = {};
+        const ARC_STEPS = 500;
+        const VANISH_WINDOW = { min: 0.6, max: 0.8 };
+
+        function sampleVanishP() {
+            const range = VANISH_WINDOW.max - VANISH_WINDOW.min;
+            const randomFactor = Math.random();
+            return VANISH_WINDOW.min + randomFactor * range;
+        }
+
+        // --- State ---
+        let running = false, trialIndex = 0, trials = [], animationFrameId;
+        let experimentStartTimeCET;
+        let EXPERIMENT_FINALIZED = false;
+        let isTrialActive = false;
+
+        let driftGuard = {
+            armed: false,
+            start: null,
+            moved: false
+        };
+        const DRIFT_GUARD_THRESHOLD = 3 * window.devicePixelRatio;
+
+        let mouseMovedDuringAnimation = false;
+        let armAnimationMouseGuard = false;
+        const ANIMATION_MOVE_THRESHOLD = 8;
+
+        let fullscreenInterrupted = false;
+        let onFullscreenInterrupt = null;
+
+        // --- Helper Functions ---
+        function shuffle(a) {
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        }
+
+        function delay(ms) {
+            return new Promise(res => setTimeout(res, ms));
+        }
+
+        function sampleDelay(range) {
+            return range.min + Math.random() * (range.max - range.min);
+        }
+
+        function euclideanDist(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        function getMousePosOnCanvas(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function areTrialsIdentical(t1, t2) {
+            if (!t1 || !t2) return false;
+            const sameBasic = t1.motionPath === t2.motionPath &&
+                t1.pathGeometry === t2.pathGeometry &&
+                t1.direction === t2.direction &&
+                t1.pathVisibility === t2.pathVisibility;
+            if (!sameBasic) return false;
+            if (t1.pathGeometry !== 'sinusoidal') return true;
+            return Math.abs((t1.phaseOffset || 0) - (t2.phaseOffset || 0)) < 1e-3;
+        }
+
+        function isDifferentCondition(a, b) {
+            if (!a || !b) return false;
+            return a.motionPath !== b.motionPath ||
+                a.pathGeometry !== b.pathGeometry ||
+                a.direction !== b.direction ||
+                a.pathVisibility !== b.pathVisibility;
+        }
+
+        // --- Path Definitions ---
+        const pathDefs = {
+            'horizontal': {
+                getPoint: (p, amp, angle) => ({
+                    x: (midX - pathWidth / 2) + p * pathWidth,
+                    y: midY - amp * Math.sin(angle)
+                }),
+                dir: { x: 1, y: 0 }
+            },
+            'upward': {
+                getPoint: (p, amp, angle) => {
+                    const x_span = pathWidth * NORM_45;
+                    const y_span = pathHeight * NORM_45;
+                    const startX = midX - x_span / 2;
+                    const startY = midY + y_span / 2;
+                    return {
+                        x: startX + p * x_span - amp * Math.sin(angle) * NORM_45,
+                        y: startY - p * y_span - amp * Math.sin(angle) * NORM_45
+                    };
+                },
+                dir: { x: NORM_45, y: -NORM_45 }
+            },
+            'downward': {
+                getPoint: (p, amp, angle) => {
+                    const x_span = pathWidth * NORM_45;
+                    const y_span = pathHeight * NORM_45;
+                    const startX = midX - x_span / 2;
+                    const startY = midY - y_span / 2;
+                    return {
+                        x: startX + p * x_span - amp * Math.sin(angle) * NORM_45,
+                        y: startY + p * y_span + amp * Math.sin(angle) * NORM_45
+                    };
+                },
+                dir: { x: NORM_45, y: NORM_45 }
+            }
+        };
+
+        // --- 1. Arc Length Cache Builder ---
+        function buildArcLengthCache(tr) {
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+            if (arcLengthCache[key]) return;
+
+            const definition = pathDefs[tr.motionPath];
+            const geometry = tr.pathGeometry;
+            const phaseOffset = tr.phaseOffset || 0;
+            const amp = (geometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+
+            let totalLength = 0;
+            let segments = [];
+            let prevPoint = definition.getPoint(0, amp, phaseOffset);
+
+            for (let i = 1; i <= ARC_STEPS; i++) {
+                const p_norm = i / ARC_STEPS;
+                const angle = (geometry === 'sinusoidal') ? (SINE_CYCLES * p_norm * 2 * Math.PI + phaseOffset) : 0;
+                const currentPoint = definition.getPoint(p_norm, amp, angle);
+
+                const segmentLength = euclideanDist(prevPoint, currentPoint);
+                totalLength += segmentLength;
+                segments.push({ p: p_norm, length: totalLength });
+
+                prevPoint = currentPoint;
+            }
+
+            arcLengthCache[key] = {
+                total: totalLength,
+                segments: segments
+            };
+        }
+
+        // --- 2. Get Normalized Progress at True Arc Length ---
+        function getPAtArcLength(tr, targetLength) {
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+            const cache = arcLengthCache[key];
+            if (!cache || !cache.total) return 0;
+
+            if (targetLength <= 0) return 0;
+            if (targetLength >= cache.total) return 1;
+
+            let lowerSegment = { p: 0, length: 0 };
+            let upperSegment = cache.segments[cache.segments.length - 1];
+
+            for (const seg of cache.segments) {
+                if (seg.length <= targetLength) {
+                    lowerSegment = seg;
+                } else {
+                    upperSegment = seg;
+                    break;
+                }
+            }
+
+            const lengthRange = upperSegment.length - lowerSegment.length;
+            if (lengthRange === 0) return lowerSegment.p;
+
+            const pRange = upperSegment.p - lowerSegment.p;
+            const progressInSegment = (targetLength - lowerSegment.length) / lengthRange;
+
+            return lowerSegment.p + progressInSegment * pRange;
+        }
+
+        // --- 3. Get Arc Length at Normalized Progress ---
+        function getArcLengthAtP(tr, p_target) {
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+            const cache = arcLengthCache[key];
+            if (!cache || !cache.total || p_target <= 0) return 0;
+            if (p_target >= 1) return cache.total;
+
+            let lowerSegment = { p: 0, length: 0 };
+            let upperSegment = cache.segments[cache.segments.length - 1];
+
+            for (const seg of cache.segments) {
+                if (seg.p <= p_target) {
+                    lowerSegment = seg;
+                } else {
+                    upperSegment = seg;
+                    break;
+                }
+            }
+
+            const pRange = upperSegment.p - lowerSegment.p;
+            if (pRange === 0) return lowerSegment.length;
+
+            const lengthRange = upperSegment.length - lowerSegment.length;
+            const progressInSegment = (p_target - lowerSegment.p) / pRange;
+
+            return lowerSegment.length + progressInSegment * lengthRange;
+        }
+
+        // --- Find Closest Point on Path ---
+        function findClosestPointOnPath(tr, clickPoint) {
+            const definition = pathDefs[tr.motionPath];
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+            const cache = arcLengthCache[key];
+            const totalLen = cache.total;
+
+            const amp = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+            const phase = tr.phaseOffset || 0;
+
+            function pointAtP(p) {
+                const angle = (tr.pathGeometry === 'sinusoidal')
+                    ? (SINE_CYCLES * p * 2 * Math.PI + phase)
+                    : 0;
+                return definition.getPoint(p, amp, angle);
+            }
+
+            // 1. Coarse search
+            const COARSE_STEPS = 300;
+            let bestS = 0;
+            let bestP = 0;
+            let bestPt = pointAtP(0);
+            let bestD = euclideanDist(clickPoint, bestPt);
+
+            for (let i = 1; i <= COARSE_STEPS; i++) {
+                const s = totalLen * (i / COARSE_STEPS);
+                const p = getPAtArcLength(tr, s);
+                const pt = pointAtP(p);
+                const d = euclideanDist(clickPoint, pt);
+                if (d < bestD) {
+                    bestD = d;
+                    bestS = s;
+                    bestP = p;
+                    bestPt = pt;
+                }
+            }
+
+            // 2. Fine (ternary) search in the local minimum
+            let lo = Math.max(0, bestS - totalLen * 0.02);
+            let hi = Math.min(totalLen, bestS + totalLen * 0.02);
+
+            const REFINE_ITERS = 20;
+            for (let k = 0; k < REFINE_ITERS; k++) {
+                const m1 = lo + (hi - lo) / 3;
+                const m2 = hi - (hi - lo) / 3;
+                const p1 = getPAtArcLength(tr, m1);
+                const pt1 = pointAtP(p1);
+                const d1 = euclideanDist(clickPoint, pt1);
+                const p2 = getPAtArcLength(tr, m2);
+                const pt2 = pointAtP(p2);
+                const d2 = euclideanDist(clickPoint, pt2);
+                if (d1 < d2) {
+                    hi = m2;
+                    if (d1 < bestD) {
+                        bestD = d1;
+                        bestS = m1;
+                        bestP = p1;
+                        bestPt = pt1;
+                    }
+                } else {
+                    lo = m1;
+                    if (d2 < bestD) {
+                        bestD = d2;
+                        bestS = m2;
+                        bestP = p2;
+                        bestPt = pt2;
+                    }
+                }
+            }
+
+            return { p: bestP, point: bestPt, distance: bestD };
+        }
+
+        // drawTrack is used for both animation (if visible) and response (always)
+        function drawTrack(tr) {
+            const path = tr.motionPath;
+            const geometry = tr.pathGeometry;
+            const phaseOffset = tr.phaseOffset || 0;
+
+            ctx.strokeStyle = '#1f2a44';
+            ctx.lineWidth = 2 * window.devicePixelRatio;
+            ctx.beginPath();
+
+            const definition = pathDefs[path];
+            const amp = (geometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+            const steps = 100;
+
+            for (let i = 0; i <= steps; i++) {
+                const p_norm = i / steps;
+                const angle = (geometry === 'sinusoidal') ? (SINE_CYCLES * p_norm * 2 * Math.PI + phaseOffset) : 0;
+                const currentPoint = definition.getPoint(p_norm, amp, angle);
+                if (i === 0) {
+                    ctx.moveTo(currentPoint.x, currentPoint.y);
+                } else {
+                    ctx.lineTo(currentPoint.x, currentPoint.y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // --- 4. FULLSCREEN & HANDLERS ---
+        document.getElementById('enterFullscreen').addEventListener('click', async () => {
+            document.getElementById('fullscreenOverlay').style.display = 'none';
+            try {
+                await document.documentElement.requestFullscreen?.();
+            } catch (err) {
+                console.warn("Fullscreen request failed:", err);
+            }
+            resizeCanvas();
+            startExperiment();
+        });
+
+        function waitContinue() {
+            return new Promise(res => {
+                continueBtn.addEventListener('click', res, { once: true });
+            });
+        }
+
+        function showFsOverlay() {
+            fsExitOverlay.style.display = 'flex';
+        }
+
+        function hideFsOverlay() {
+            fsExitOverlay.style.display = 'none';
+        }
+
+        function waitForFullscreen() {
+            return new Promise(resolve => {
+                if (document.fullscreenElement) return resolve();
+                const handler = () => {
+                    if (document.fullscreenElement) {
+                        document.removeEventListener('fullscreenchange', handler);
+                        resolve();
+                    }
+                };
+                document.addEventListener('fullscreenchange', handler);
+            });
+        }
+
+        returnFullscreenBtn.addEventListener('click', async () => {
+            try {
+                await document.documentElement.requestFullscreen?.();
+            } catch { }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && running) {
+                fullscreenInterrupted = true;
+                showFsOverlay();
+                if (typeof onFullscreenInterrupt === 'function') onFullscreenInterrupt();
+            } else if (document.fullscreenElement && fullscreenInterrupted) {
+                fullscreenInterrupted = false;
+                hideFsOverlay();
+            }
+        });
+
+        // --- 5. BUILD TRIALS (DOWNWARD ONLY) ---
+        function buildTrials() {
+            const allTrialTypes = [
+                // 1. Downward-Right (Top-Left -> Bottom-Right)
+                { motionPath: 'downward', pathGeometry: 'linear', pathVisibility: 'visible', direction: 1 },
+                
+                // 2. Downward-Left (Top-Right -> Bottom-Left) [Uses reversed Upward path]
+                { motionPath: 'upward', pathGeometry: 'sinusoidal', pathVisibility: 'visible', direction: -1 },
+                
+                // 3. Downward-Left (Top-Right -> Bottom-Left) [Uses reversed Upward path]
+                { motionPath: 'upward', pathGeometry: 'linear', pathVisibility: 'visible', direction: -1 },
+                
+                // 4. Downward-Right Invisible
+                { motionPath: 'downward', pathGeometry: 'sinusoidal', pathVisibility: 'invisible', direction: 1 },
+                
+                // 5. Downward-Left Invisible [Uses reversed Upward path]
+                { motionPath: 'upward', pathGeometry: 'linear', pathVisibility: 'invisible', direction: -1 }
+            ];
+
+            let trials = shuffle(allTrialTypes);
+
+            return trials.map((t, i) => {
+                const trial = { ...t, idx: i + 1, vanishP: sampleVanishP() };
+                if (trial.pathGeometry === 'sinusoidal') {
+                    trial.phaseOffset = Math.random() * 2 * Math.PI;
+                } else {
+                    trial.phaseOffset = 0;
+                }
+                return trial;
+            });
+        }
+
+        // --- Core Trial Logic ---
+        function handleError(message, resolve) {
+            msg.textContent = message;
+            document.body.style.cursor = 'default';
+            nextTrialBtn.textContent = 'Continue';
+            nextTrialBtn.style.display = 'block';
+
+            nextTrialBtn.addEventListener('click', () => {
+                nextTrialBtn.style.display = 'none';
+                nextTrialBtn.textContent = 'Next Trial';
+                onFullscreenInterrupt = null;
+                resolve(false);
+            }, { once: true });
+        }
+
+        function runOneTrial(tr, totalTrials) {
+            return new Promise(resolve => {
+                const speedVariation = 0.90 + (Math.random() * 0.20);
+                const speed_px_ms = BASE_SPEED_PX_PER_MS * speedVariation;
+                buildArcLengthCache(tr);
+                const cacheKey = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+                const totalPathLength = arcLengthCache[cacheKey].total;
+                const startTS = performance.now();
+                let lastFrameTime = startTS, accumulatedTime = 0, totalElapsed = 0;
+                let vanished = false, vanishPos = { x: null, y: null }, vanishArcLen = null;
+                const definition = pathDefs[tr.motionPath];
+                const randomStartOffsetPx = Math.random() * (totalPathLength * 0.20);
+                const vanishTimeMs = ((totalPathLength - randomStartOffsetPx) * tr.vanishP) / speed_px_ms;
+
+                mouseMovedDuringAnimation = false;
+                armAnimationMouseGuard = false;
+                isTrialActive = true;
+
+                const handleAnimationMouseMove = (e) => {
+                    if (!isTrialActive || !armAnimationMouseGuard) return;
+                    const dx = e.movementX || 0, dy = e.movementY || 0;
+                    if ((dx * dx + dy * dy) >= (ANIMATION_MOVE_THRESHOLD * ANIMATION_MOVE_THRESHOLD)) {
+                        mouseMovedDuringAnimation = true;
+                    }
+                };
+
+                document.addEventListener('mousemove', handleAnimationMouseMove);
+                setTimeout(() => { armAnimationMouseGuard = true; }, 150);
+
+                onFullscreenInterrupt = () => {
+                    try { cancelAnimationFrame(animationFrameId); } catch { }
+                    isTrialActive = false;
+                    document.removeEventListener('mousemove', handleAnimationMouseMove);
+                    canvas.removeEventListener('mousedown', onMouseDown);
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('click', onClick, true);
+                    clearTimeout(clickPhase?.timeoutId);
+                    msg.textContent = 'Fullscreen was exited. Click "Return to Fullscreen" to repeat this trial.';
+                    resolve(false);
+                    onFullscreenInterrupt = null;
+                };
+
+                let onMouseDown, onMouseMove, onClick, clickPhase;
+
+                const frame = (now) => {
+                    animationFrameId = requestAnimationFrame(frame);
+
+                    if (mouseMovedDuringAnimation) {
+                        cancelAnimationFrame(animationFrameId);
+                        isTrialActive = false;
+                        document.removeEventListener('mousemove', handleAnimationMouseMove);
+                        handleError('Mouse moved during trial. Please click "Continue" to restart.', resolve);
+                        return;
+                    }
+
+                    if (fullscreenInterrupted) {
+                        cancelAnimationFrame(animationFrameId);
+                        isTrialActive = false;
+                        document.removeEventListener('mousemove', handleAnimationMouseMove);
+                        onFullscreenInterrupt = null;
+                        resolve(false);
+                        return;
+                    }
+
+                    const delta = now - lastFrameTime;
+                    lastFrameTime = now;
+                    accumulatedTime += delta;
+
+                    while (accumulatedTime >= FRAME_INTERVAL) {
+                        if (vanished) break;
+                        totalElapsed += FRAME_INTERVAL;
+
+                        if (!vanished && totalElapsed >= vanishTimeMs) {
+                            vanished = true;
+                            const vanishDistTravelled = speed_px_ms * vanishTimeMs + randomStartOffsetPx;
+                            const cappedVanishDist = Math.min(vanishDistTravelled, totalPathLength);
+                            vanishArcLen = (tr.direction === 1) ? cappedVanishDist : (totalPathLength - cappedVanishDist);
+                            const p_norm_vanish = getPAtArcLength(tr, vanishArcLen);
+                            const amp_vanish = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+                            const angle_vanish = (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_norm_vanish * 2 * Math.PI + (tr.phaseOffset || 0)) : 0;
+                            vanishPos = definition.getPoint(p_norm_vanish, amp_vanish, angle_vanish);
+
+                            cancelAnimationFrame(animationFrameId);
+
+                            // PRACTICE 2 SPECIAL BEHAVIOR: NO FEEDBACK - JUST BLANK
+                            clearCanvas();
+                            msg.textContent = 'Blank period...';
+                            document.body.style.cursor = 'default';
+
+                            isTrialActive = false;
+                            document.removeEventListener('mousemove', handleAnimationMouseMove);
+                            driftGuard = { armed: false, start: null, moved: false };
+
+                            // Fixed blank period
+                            setTimeout(() => {
+                                isTrialActive = true;
+                                clearCanvas();
+                                drawTrack(tr);
+                                msg.textContent = 'Click on the path.';
+
+                                clickPhase = { active: true, timeoutId: null };
+
+                                const cleanup = () => {
+                                    if (!clickPhase.active) return;
+                                    clickPhase.active = false;
+                                    isTrialActive = false;
+                                    canvas.removeEventListener('mousedown', onMouseDown);
+                                    document.removeEventListener('mousemove', onMouseMove);
+                                    document.removeEventListener('click', onClick, true);
+                                    clearTimeout(clickPhase.timeoutId);
+                                };
+
+                                onMouseDown = (e) => {
+                                    if (!isTrialActive || !clickPhase.active || e.button !== 0) return;
+                                    driftGuard.start = getMousePosOnCanvas(e);
+                                    driftGuard.armed = true;
+                                    driftGuard.moved = false;
+                                };
+
+                                onMouseMove = (e) => {
+                                    if (!isTrialActive || !clickPhase.active || !driftGuard.armed) return;
+                                    const pos = getMousePosOnCanvas(e);
+                                    if ((Math.pow(pos.x - driftGuard.start.x, 2) + Math.pow(pos.y - driftGuard.start.y, 2)) >= (DRIFT_GUARD_THRESHOLD * DRIFT_GUARD_THRESHOLD)) {
+                                        driftGuard.moved = true;
+                                        cleanup();
+                                        handleError('Mouse moved during response. Please click "Continue" to restart.', resolve);
+                                    }
+                                };
+
+                                onClick = (e) => {
+                                    if (!isTrialActive || !clickPhase.active || e.button !== 0) return;
+                                    if (fullscreenInterrupted) {
+                                        cleanup();
+                                        return;
+                                    }
+                                    if (driftGuard.moved) return;
+
+                                    const clickPos = getMousePosOnCanvas(e);
+                                    const closest = findClosestPointOnPath(tr, clickPos);
+
+                                    // Orthogonal Check
+                                    const p_before = Math.max(0, Math.min(1, closest.p - 0.001));
+                                    const p_after = Math.max(0, Math.min(1, closest.p + 0.001));
+                                    const tan_amp = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+                                    const phase = tr.phaseOffset || 0;
+                                    const pb = definition.getPoint(p_before, tan_amp, (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_before * 2 * Math.PI + phase) : 0);
+                                    const pa = definition.getPoint(p_after, tan_amp, (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_after * 2 * Math.PI + phase) : 0);
+                                    const tan = { x: pa.x - pb.x, y: pa.y - pb.y };
+                                    const mag = Math.hypot(tan.x, tan.y);
+                                    const unitTan = (mag > 0) ? { x: tan.x / mag, y: tan.y / mag } : pathDefs[tr.motionPath].dir;
+                                    const unitNorm = { x: -unitTan.y, y: unitTan.x };
+                                    const clickVec = { x: clickPos.x - closest.point.x, y: clickPos.y - closest.point.y };
+                                    const orthErr = clickVec.x * unitNorm.x + clickVec.y * unitNorm.y;
+
+                                    if (Math.abs(orthErr) > CLICK_SNAP_PX) {
+                                        msg.textContent = 'Click was too far from the path. Please try again.';
+                                        driftGuard.armed = false;
+                                        driftGuard.moved = false;
+                                        return;
+                                    }
+
+                                    cleanup();
+                                    clearCanvas();
+                                    drawTrack(tr);
+                                    ctx.fillStyle = '#000000';
+                                    ctx.beginPath();
+                                    ctx.arc(closest.point.x, closest.point.y, dotR, 0, Math.PI * 2);
+                                    ctx.fill();
+                                    msg.textContent = 'Response recorded.';
+                                    onFullscreenInterrupt = null;
+                                    nextTrialBtn.style.display = 'block';
+                                    nextTrialBtn.addEventListener('click', () => {
+                                        nextTrialBtn.style.display = 'none';
+                                        resolve(true);
+                                    }, { once: true });
+                                };
+
+                                canvas.addEventListener('mousedown', onMouseDown);
+                                document.addEventListener('mousemove', onMouseMove);
+                                document.addEventListener('click', onClick, true);
+                                clickPhase.timeoutId = setTimeout(() => {
+                                    cleanup();
+                                    handleError('Time expired. Please click "Continue" to restart.', resolve);
+                                }, RESPONSE_WINDOW_MS);
+
+                            }, FIXED_BLANK_MS);
+                        }
+
+                        accumulatedTime -= FRAME_INTERVAL;
+                    }
+
+                    if (!vanished) {
+                        clearCanvas();
+                        if (tr.pathVisibility === 'visible') drawTrack(tr);
+
+                        const distTravelled = speed_px_ms * totalElapsed + randomStartOffsetPx;
+                        if (distTravelled < totalPathLength) {
+                            const distFromStart = (tr.direction === 1) ? distTravelled : (totalPathLength - distTravelled);
+                            const p_norm = Math.max(0, Math.min(1, getPAtArcLength(tr, distFromStart)));
+                            const amp = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+                            const angle = (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_norm * 2 * Math.PI + (tr.phaseOffset || 0)) : 0;
+                            const currentPos = definition.getPoint(p_norm, amp, angle);
+                            ctx.fillStyle = '#000';
+                            ctx.beginPath();
+                            ctx.arc(currentPos.x, currentPos.y, dotR, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                };
+
+                animationFrameId = requestAnimationFrame(frame);
+            });
+        }
+
+        // --- Experiment Flow ---
+        async function startExperiment() {
+            const allPossibleTrials = buildTrials();
+
+            if (running) return;
+            running = true;
+            experimentStartTimeCET = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Malta' });
+
+            DURATION_SEC = parseFloat(tInput.value) || 3.7;
+            SINE_AMPLITUDE = parseFloat(ampInput.value) || 0.05;
+            SINE_CYCLES = parseFloat(cyclesInput.value) || 3;
+
+            // Build arc-length caches using current geometry
+            allPossibleTrials.forEach(tr => buildArcLengthCache(tr));
+
+            // Compute a single constant base speed
+            const totals = allPossibleTrials.map(tr => {
+                const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+                return arcLengthCache[key].total;
+            });
+            const minPathLen = Math.min(...totals.filter(t => t > 0));
+
+            if (!minPathLen || minPathLen <= 0) {
+                msg.textContent = "Error: Canvas too small.";
+                return;
+            }
+
+            const estimatedFullDurationMs = (DURATION_SEC * 1000);
+            BASE_SPEED_PX_PER_MS = minPathLen / estimatedFullDurationMs;
+
+            trials = allPossibleTrials;
+            const totalTrials = trials.length;
+
+            // --- PRACTICE 2 INSTRUCTIONS ---
+            ovlTitle.textContent = 'Practice 2: Instructions';
+            ovlBody.innerHTML = `This is the second practice block.
+    <br><br>Your task is to track the moving dot with your eyes.
+    <br><br>The dot will vanish. After a brief blank period, the path will appear.
+    <br><br>Your task is to <strong>click on the path at the point where you think the dot vanished</strong>.
+    <br><br><strong>Important:</strong> Please do NOT move your mouse from the moment a trial begins until you are asked to click.
+    <br><br>The practice consists of ${totalTrials} trials.`;
+            overlay.style.display = 'flex';
+            await waitContinue();
+            overlay.style.display = 'none';
+
+            // freeze canvas size for the entire run
+            FREEZE_CANVAS_SIZE = true;
+            resizeCanvas();
+
+            let trialIndex = 0;
+            while (trialIndex < totalTrials) {
+                const tr = trials[trialIndex];
+                tr.idx = trialIndex + 1;
+
+                clearCanvas();
+                msg.textContent = `Practice Trial ${tr.idx}/${totalTrials}`;
+                await delay(INTER_TRIAL_BLANK_MS);
+
+                document.body.style.cursor = 'none';
+
+                await delay(sampleDelay(PRE_STIMULUS_DELAY));
+
+                const trialSuccessful = await runOneTrial(tr, totalTrials);
+
+                if (trialSuccessful === true) {
+                    trialIndex++;
+                } else {
+                    if (fullscreenInterrupted) {
+                        msg.textContent = `Fullscreen was exited. Click "Return" to continue.`;
+                        await waitForFullscreen();
+                        fullscreenInterrupted = false;
+                    }
+                }
+            }
+
+            // --- PRACTICE COMPLETE ---
+            ovlTitle.textContent = 'Practice 2 Complete!';
+            ovlBody.innerHTML = 'Thank you for completing the second practice. <br><br>You are now ready to start the main experiment. Please click the "Start Main Experiment" button.';
+            continueBtn.textContent = 'Start Main Experiment';
+            overlay.style.display = 'flex';
+            continueBtn.addEventListener('click', () => {
+                if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
+
+                EXPERIMENT_FINALIZED = true;
+
+                try { if (animationFrameId) cancelAnimationFrame(animationFrameId); } catch { }
+
+                overlay.style.display = 'none';
+                nextTrialBtn.style.display = 'none';
+                fsExitOverlay.style.display = 'none';
+                document.body.style.cursor = 'default';
+                if (typeof clearCanvas === 'function') clearCanvas();
+                msg.textContent = 'Thank you!';
+                startNextPhase();
+
+            }, { once: true });
+
+            FREEZE_CANVAS_SIZE = false;
+            running = false;
+        }
+
+        function startNextPhase() {
+            var pageString = "EXP3.html?ID=";
+            var secondString = "&SESSION=";
+            var finalURL = pageString + sessionStart.toString() + secondString + sessionKey.toString() + sourceString + dataString;
+
+            window.location.href = finalURL;
+        }
+
+        resizeCanvas();
+    </script>
+</body>
+
+</html>

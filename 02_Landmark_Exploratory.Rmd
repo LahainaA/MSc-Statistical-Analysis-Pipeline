@@ -1,0 +1,248 @@
+---
+title: "The Landmark Test - Exploratory Analysis"
+author: "Laura Engels"
+date: "2026-01-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(eval = FALSE, echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(minpack.lm) 
+```
+
+# Prep
+```{r load-and-clean}
+# Note: Path is generic for privacy
+file_path <- "data/raw_data/experiment_1_horizontal.csv"
+df <- read_csv(file_path, show_col_types = FALSE)
+
+df_clean <- df %>% 
+  # Robust outlier filtering (handles "TRUE"/TRUE)
+  mutate(isOut = as.logical(isOutlier)) %>%
+  filter(is.na(isOut) | !isOut) %>%
+  mutate(
+    fileID = as.factor(fileID),
+    pathGeometry = as.factor(pathGeometry),
+    pathVisible = as.factor(pathVisible),
+    direction = as.factor(direction),
+    
+    # CONTRAST CODING 
+    # numeric codes, MUST specify values in emmeans later.
+    pathVisibleC = ifelse(pathVisible == "visible", 0.5, -0.5),
+    pathGeometryC = ifelse(pathGeometry == "sinusoidal", 0.5, -0.5)
+  )
+```
+
+## Part 1: Global Geometry Effect
+## Question: Does the sinusoidal shape itself disrupt momentum compared to linear paths?
+
+```{r model-global-geometry}
+print("--- GLOBAL MODEL RESULTS (Singularity Fixed) ---")
+
+# We use || to remove correlations between random effects, preventing singular fits.
+model_global <- lmer(errorFwd_px ~ pathGeometryC * pathVisibleC + 
+                       (1 + pathGeometryC * pathVisibleC || fileID), 
+                     data = df_clean,
+                     control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+print(anova(model_global))
+
+print("--- POST-HOC: Geometry x Visibility ---")
+emmeans(model_global, 
+        pairwise ~ pathVisibleC | pathGeometryC,
+        at = list(pathVisibleC = c(-0.5, 0.5),
+                  pathGeometryC = c(-0.5, 0.5)))
+```
+
+##Part 2: The Landmark Test (Derivative Method)
+##Question: Do turning points (Peaks) act as landmarks?
+
+```{r define-sine-function}
+# DEFINE SINE FITTING FUNCTION
+fit_sine_wave <- function(df_subset) {
+  x <- df_subset$vanishX_px
+  y <- df_subset$vanishY_px
+  
+  # Initial Guesses
+  A_init <- (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) / 2
+  c_init <- mean(y, na.rm=TRUE)
+  x_range <- max(x, na.rm=TRUE) - min(x, na.rm=TRUE)
+  if(x_range == 0) x_range <- 1
+  k_init <- 2 * pi / x_range
+  
+  tryCatch({
+    m <- nlsLM(vanishY_px ~ c + A * sin(k * vanishX_px + phi),
+               data = df_subset,
+               start = list(c = c_init, A = A_init, k = k_init, phi = 0),
+               control = nls.lm.control(maxiter = 200))
+    return(t(coef(m)))
+  }, error = function(e) return(data.frame(c=NA, A=NA, k=NA, phi=NA)))
+}
+
+# FIT SINE WAVE PER PARTICIPANT & DIRECTION
+df_sin_params <- df_clean %>%
+  filter(pathGeometry == "sinusoidal") %>%
+  group_by(fileID, direction) %>%
+  do(as.data.frame(fit_sine_wave(.))) %>%
+  ungroup()
+
+# CALCULATE DERIVATIVES & LABEL REGIONS
+# FIX: Now grouping by 'fileID' AND 'direction' for correct thresholding
+df_derivative <- df_clean %>%
+  filter(pathGeometry == "sinusoidal") %>%
+  left_join(df_sin_params, by = c("fileID", "direction")) %>%
+  filter(!is.na(k)) %>% 
+  mutate(
+    theta = k * vanishX_px + phi,
+    slope = A * k * cos(theta),
+    abs_slope = abs(slope),
+    # Define Top/Bottom relative to the sine center 'c'
+    vertical_pos = ifelse(vanishY_px < c, "Top", "Bottom") 
+  ) %>%
+  # Group by Direction too
+  group_by(fileID, direction) %>%
+  mutate(
+    # Threshold: flattest 15% of THIS specific trajectory type
+    slope_thresh = quantile(abs_slope, 0.15, na.rm = TRUE),
+    
+    LandmarkRegion = case_when(
+      abs_slope <= slope_thresh & vertical_pos == "Top" ~ "Top Peak",
+      abs_slope <= slope_thresh & vertical_pos == "Bottom" ~ "Bottom Peak",
+      TRUE ~ "Slope"
+    )
+  ) %>%
+  ungroup()
+
+# Set Reference Level
+df_derivative$LandmarkRegion <- relevel(as.factor(df_derivative$LandmarkRegion), ref = "Slope")
+# Ensure coding is present
+df_derivative$pathVisibleC <- ifelse(df_derivative$pathVisible == "visible", 0.5, -0.5)
+
+print("--- LANDMARK REGION COUNTS ---")
+table(df_derivative$LandmarkRegion)
+```
+
+#Landmark Statistical Model & Plot
+
+```{r calc-derivatives, plot-landmark-regions, fig.cap="Forward Error by Landmark Region", fig.height=5, fig.width=7}
+# random slopes for Visibility (lots of data) but not Landmarks (sparse data)
+# add 'direction' as a fixed effect to control for left-right 
+
+print("--- LANDMARK MODEL RESULTS ---")
+model_landmark <- lmer(errorFwd_px ~ LandmarkRegion * pathVisibleC + direction + 
+                         (1 + pathVisibleC | fileID), 
+                       data = df_derivative,
+                       control = lmerControl(optimizer = "bobyqa"))
+
+print(summary(model_landmark))
+
+print("--- POST-HOC: Landmark Regions ---")
+
+emmeans(model_landmark, 
+        pairwise ~ LandmarkRegion | pathVisibleC,
+        at = list(pathVisibleC = c(-0.5, 0.5)))
+
+# Create the Plot
+df_derivative %>%
+  group_by(LandmarkRegion, pathVisible) %>%
+  summarise(
+    mean_error = mean(errorFwd_px),
+    se_error = sd(errorFwd_px) / sqrt(n()),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = LandmarkRegion, y = mean_error, fill = pathVisible)) +
+  geom_bar(stat = "identity", position = position_dodge(0.9), alpha = 0.8) +
+  geom_errorbar(aes(ymin = mean_error - se_error, ymax = mean_error + se_error),
+                position = position_dodge(0.9), width = 0.25) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_minimal() +
+  labs(
+    title = "Forward Error by Landmark Region (Derivative Method)",
+    subtitle = "Comparing Top/Bottom Peaks (Flat Slope) vs. Slope (Steep Slope)",
+    y = "Forward Error (px)",
+    x = "Region"
+  )
+```
+
+#Part 3: Mechanisms
+##eQuestions: Does Speed matter?
+## Does response latency relate to overshoot?
+```{r mechanisms-speed-latency}
+if("speed_px_s" %in% names(df_clean)){
+  print("--- MECHANISM: SPEED ---")
+  model_mech <- lmer(errorFwd_px ~ pathGeometryC * speed_px_s + (1 | fileID), 
+                     data = df_clean,
+                     control = lmerControl(optimizer = "bobyqa"))
+  print(summary(model_mech))
+}
+
+# MECHANISM CHECK: Response Latency
+# Question: Does taking longer to respond (higher latency) lead to more overshoot?
+
+if("errorTemp_ms" %in% names(df_clean)){
+  print("--- MECHANISM: LATENCY (Response Time) ---")
+  
+  # We scale() the time variable to prevent convergence errors (ms are large numbers)
+  model_latency <- lmer(errorFwd_px ~ pathGeometryC * pathVisibleC + scale(errorTemp_ms) + 
+                          (1 | fileID), 
+                        data = df_clean,
+                        control = lmerControl(optimizer = "bobyqa"))
+  
+  print(summary(model_latency))
+}
+```
+
+# Part 4: Robustness Checks
+# Question: Do results depend on the arbitrary 15% cutoff?
+```{r robustness}
+print("--- ROBUSTNESS 1: SENSITIVITY TO CUTOFF (10%, 15%, 20%) ---")
+
+# Loop through different quantiles to show pattern stability
+for (q in c(0.10, 0.15, 0.20)) {
+  tmp <- df_derivative %>%
+    group_by(fileID, direction) %>%
+    mutate(slope_thresh = quantile(abs_slope, q, na.rm=TRUE),
+           # Define Binary "Turning vs Slope" for this check
+           Turning = abs_slope <= slope_thresh) %>%
+    ungroup()
+  
+  # test the general effect of "Turning Regions" vs Slopes
+  m_robust <- lmer(errorFwd_px ~ Turning * pathVisibleC + direction + (1|fileID), 
+                   data=tmp,
+                   control = lmerControl(optimizer = "bobyqa"))
+  
+  cat("\n--- Quantile Cutoff:", q, "---\n")
+  print(anova(m_robust))
+}
+
+print("--- ROBUSTNESS 2: CONTINUOUS SLOPE ANALYSIS ---")
+# If slope matters, we should see a relationship without ANY binning.
+# Flatter slope (near 0) = Turning Point. Steeper slope = Slope Region.
+# test if error scales with absolute slope.
+
+model_cont <- lmer(errorFwd_px ~ abs_slope * pathVisibleC + direction + (1 | fileID), 
+                   data = df_derivative,
+                   control = lmerControl(optimizer = "bobyqa"))
+
+print(summary(model_cont))
+
+# --- DISTRIBUTIONAL SUMMARY FOR THESIS ---
+df_derivative %>%
+  group_by(LandmarkRegion) %>%
+  summarise(
+    Mean = mean(errorFwd_px),
+    Median = median(errorFwd_px),
+    Overshoot_Rate = mean(errorFwd_px > 0) * 100, # Percentage of trials > 0
+    SD = sd(errorFwd_px)
+  )
+```
+## Caveat: binning can change conclusions depending on where you put boundaries; known issue in methods.
+
+
+

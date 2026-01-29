@@ -1,0 +1,432 @@
+---
+title: "Cross-Experiment Comparison: The Grand Finale"
+author: "Analysis Pipeline"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(eval = FALSE, echo = TRUE, fig.width = 12, fig.height = 8, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(lmerTest)
+library(emmeans)
+library(knitr)
+```
+
+# Prep 
+
+```{r dataload}
+# 1. Load the data  saved from the previous steps
+#    (These ave the "Group_Median" column!)
+
+# Paths are generic.
+path_E1 <- "data/processed/E1_Processed_Data.csv"
+path_E2 <- "data/processed/E2_Processed_Data.csv"
+path_E3 <- "data/processed/E3_Processed_Data.csv"
+
+# 2. Load & Create Unique IDs
+cols_to_keep <- c("participant_id", "trial", "pathGeometry", "pathVisible", 
+                  "errorFwd_px_num", "Group_Median")
+
+df_E1 <- read_csv(path_E1_processed, show_col_types = FALSE) %>% 
+  mutate(
+    Experiment = "Horizontal (E1)",
+    unique_id = paste0("E1_", participant_id) 
+  )
+
+df_E2 <- read_csv(path_E2_processed, show_col_types = FALSE) %>% 
+  mutate(
+    Experiment = "Upward (E2)",
+    unique_id = paste0("E2_", participant_id) 
+  )
+
+df_E3 <- read_csv(path_E3_processed, show_col_types = FALSE) %>% 
+  mutate(
+    Experiment = "Downward (E3)",
+    unique_id = paste0("E3_", participant_id) 
+  )
+
+# Merge into Mega-Dataset (Added df_E2 to bind_rows)
+df_mega <- bind_rows(df_E1, df_E2, df_E3) %>%
+  mutate(
+    Experiment = factor(Experiment, levels = c("Horizontal (E1)", "Upward (E2)", "Downward (E3)")),
+    pathGeometry = factor(pathGeometry, levels = c("linear", "sinusoidal")),
+    pathVisible = factor(pathVisible, levels = c("invisible", "visible")),
+    Group_Median = factor(Group_Median, levels = c("High Shift (>Med)", "Low Shift (<Med)"))
+  )
+
+# ONTRAST CODING (Manual Numeric Contrasts)
+# Within-Subject Factors (2 levels) -> -0.5 / 0.5
+df_mega$pathGeometryC <- ifelse(df_mega$pathGeometry == "sinusoidal", 0.5, -0.5)
+df_mega$pathVisibleC  <- ifelse(df_mega$pathVisible  == "visible",    0.5, -0.5)
+
+# Between-Subject Factor (2 levels) -> -0.5 / 0.5
+df_mega$GroupC        <- ifelse(df_mega$Group_Median == "Low Shift (<Med)", 0.5, -0.5)
+
+# Experiment Factor (3 levels) -> Sum-to-zero contrasts (Effect coding)
+# This ensures ANOVA main effects are tested against the grand mean
+contrasts(df_mega$Experiment) <- contr.sum(3)
+
+# SAFETY CHECKS 
+print("--- CODING CHECK: Geometry ---")
+print(xtabs(~pathGeometry + pathGeometryC, data = df_mega))
+
+print("--- CODING CHECK: Visibility ---")
+print(xtabs(~pathVisible + pathVisibleC, data = df_mega))
+
+print("--- CODING CHECK: Group ---")
+print(xtabs(~Group_Median + GroupC, data = df_mega))
+
+print("--- CODING CHECK: Experiment (Contrast Matrix) ---")
+print(contrasts(df_mega$Experiment))
+
+print("Mega-Dataset Loaded Successfully.")
+print(paste("Total Participants:", length(unique(df_mega$unique_id))))
+```
+
+##Visualization: The "Grand Finale" Plots
+
+```{r plot, echo=FALSE}
+## Visualization: The "Grand Finale" Plots (Methods Figure Style)
+
+#  AGGREGATE TO PARTICIPANT LEVEL
+df_participant_means <- df_mega %>%
+  group_by(participant_id, Experiment, Group_Median, pathGeometry, pathVisible) %>%
+  summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
+
+apa_theme <- theme_classic(base_size = 14) +
+  theme(
+    # Faint Grid Lines (Horizontal only)
+    panel.grid.major.y = element_line(color = "grey92", size = 0.3),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", size = 12),
+    
+    # Clean Panel Borders
+    panel.border = element_rect(color = "black", fill = NA, size = 0.5),
+    axis.line = element_blank(),
+    
+    # Legend Styling
+    legend.position = "right",
+    legend.title = element_text(face = "bold"),
+    
+    # X-Axis Spacing
+    axis.text.x = element_text(color = "black", size = 11)
+  )
+
+# PLOT 1: PRIMARY ANALYSIS (Global Trends)
+# X-Axis = Experiment (E1, E2, E3)
+# Facet  = Geometry (Linear vs. Sinusoidal)
+# Fill   = Visibility (Invisible vs. Visible)
+
+ggplot(df_participant_means, aes(x = Experiment, y = mean_error, fill = pathVisible)) +
+  
+  # Reference Line
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  
+  # Boxplots
+  geom_boxplot(
+    position = position_dodge(width = 0.8),
+    width = 0.6,
+    outlier.shape = NA,
+    alpha = 0.4,
+    color = "black",
+    lwd = 0.4
+  ) +
+  
+  # Jittered Points
+  geom_point(
+    aes(group = pathVisible),
+    position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8),
+    size = 1.2,
+    alpha = 0.4,
+    color = "grey40",
+    show.legend = FALSE
+  ) +
+  
+  # FACET: Rows = Geometry
+  facet_grid(pathGeometry ~ .) +
+  
+  # Colors
+  scale_fill_manual(name = "Visibility", values = c("invisible" = "white", "visible" = "grey80")) +
+  guides(fill = guide_legend(override.aes = list(alpha = 1, color = "black"))) +
+  
+  # Labels
+  labs(
+    title = "Primary Analysis: Global Trends (The Gravity Arc)",
+    y = "Mean Forward Error (px)",
+    x = "Motion Axis (Experiment)"
+  ) +
+  
+  apa_theme
+
+
+# PLOT 2: SECONDARY ANALYSIS (Subgroups)
+# X-Axis = Experiment
+# Facet  = Geometry (Rows) x Group (Cols)
+# Fill   = Visibility
+
+ggplot(df_participant_means, aes(x = Experiment, y = mean_error, fill = pathVisible)) +
+  
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  
+  geom_boxplot(
+    position = position_dodge(width = 0.8),
+    width = 0.6,
+    outlier.shape = NA,
+    alpha = 0.4,
+    color = "black",
+    lwd = 0.4
+  ) +
+  
+  geom_point(
+    aes(group = pathVisible),
+    position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8),
+    size = 1.0,
+    alpha = 0.4,
+    color = "grey40",
+    show.legend = FALSE
+  ) +
+  
+  # FACET: Rows = Geometry, Columns = Group
+  facet_grid(pathGeometry ~ Group_Median) +
+  
+  scale_fill_manual(name = "Visibility", values = c("invisible" = "white", "visible" = "grey80")) +
+  guides(fill = guide_legend(override.aes = list(alpha = 1, color = "black"))) +
+  
+  labs(
+    title = "Secondary Analysis: Subgroup Strategies",
+    subtitle = "Comparing High vs. Low Shifters across Experiments",
+    y = "Mean Forward Error (px)",
+    x = "Motion Axis (Experiment)"
+  ) +
+  
+  apa_theme +
+  theme(legend.position = "bottom")
+```
+
+## Primary Inferential Analysis: Mixed ANOVA 
+
+```{r jd, echo=FALSE}
+
+# PRIMARY ANALYSIS: STANDARD MIXED ANOVA
+
+# Goal: Establish general trends (Experiment x Geometry x Visibility)
+# Structure: Aggregated Participant Means
+
+rm_anova_data <- df_mega %>%
+  group_by(unique_id, Experiment, pathGeometry, pathVisible) %>%
+  summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
+
+# CHECK DATA INTEGRITY
+completeness_check <- rm_anova_data %>%
+  count(unique_id) %>%
+  mutate(is_complete = n == 4) # Must have 4 repeated measures (2 geo * 2 vis)
+
+valid_ids <- completeness_check %>% filter(is_complete) %>% pull(unique_id)
+rm_anova_clean <- rm_anova_data %>% filter(unique_id %in% valid_ids)
+
+cat("--- Primary ANOVA Data Check ---\n")
+cat("Participants Included:", length(valid_ids), "\n")
+
+# RUN MODEL
+# Between: Experiment
+# Within:  pathGeometry, pathVisible
+print("--- Running Primary Repeated Measures ANOVA ---")
+
+primary_model <- aov(
+  mean_error ~ Experiment * pathGeometry * pathVisible + 
+  Error(unique_id / (pathGeometry * pathVisible)), 
+  data = rm_anova_clean
+)
+
+summary(primary_model)
+```
+
+## Secondary Inferential Analysis: LMM (Subgroups)
+
+```{r secondary_lmm, echo=TRUE}
+
+# Goal: Analyze Subgroup Strategies (Group x Exp x Geo x Vis)
+# Structure: Trial-Level Data with Random Slopes
+
+print("--- Running Secondary Mega-Model (LMM) ---")
+
+# Ensure proper factoring before running the model
+df_mega$Experiment <- factor(df_mega$Experiment, levels = c("Horizontal (E1)", "Upward (E2)", "Downward (E3)"))
+contrasts(df_mega$Experiment) <- contr.sum(3) # Effect coding: 1=E1, 2=E2, 3=Hidden(E3)
+
+cat("\n--- SINGULARITY CHECK ---\n")
+print(isSingular(model_A_trial, tol = 1e-4))
+
+cat("\n--- CONVERGENCE MESSAGES ---\n")
+print(model_A_trial@optinfo$conv$lme4$messages)
+
+# Run the Model
+model_mega <- lmer(
+  errorFwd_px_num ~ Experiment * pathGeometryC * pathVisibleC * GroupC + 
+  (1 + pathGeometryC * pathVisibleC | unique_id),
+  data = df_mega,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+# 1. FIXED EFFECTS (BETA WEIGHTS)
+print("--- Fixed Effects Coefficients (Beta Weights) ---")
+# Note: Experiment1 = E1 effect; Experiment2 = E2 effect; E3 is the baseline reference in sum coding.
+print(summary(model_mega)$coefficients)
+
+# 2. OMNIBUS F-TESTS (Type III Kenward-Roger)
+print("--- Secondary Analysis ANOVA (Kenward-Roger) ---")
+print(anova(model_mega, ddf = "Kenward-Roger"))
+```
+
+## Follow-up Contrasts (Secondary Analysis)
+
+```{r follow-up-contrasts, echo=FALSE}
+# Set up levels for Emmeans (Numeric Coding)
+my_levels <- list(
+  pathGeometryC = c(-0.5, 0.5), 
+  pathVisibleC  = c(-0.5, 0.5),
+  GroupC        = c(-0.5, 0.5)
+)
+
+# 1. EXPERIMENT TRENDS (The "Gravity Arc")
+
+cat("\n--- 1. Experiment Trends (E1 vs E2 vs E3) within Geometry * Visibility Cells ---\n")
+emm_exp_trends <- emmeans(model_mega, ~ Experiment | pathGeometryC * pathVisibleC, at = my_levels)
+print(pairs(emm_exp_trends, adjust = "bonferroni"))
+
+# 2. VISIBILITY EFFECTS (The "Damping" Effect)
+
+cat("\n--- 2. Visibility Effects (Invisible - Visible) within Experiment * Geometry ---\n")
+emm_vis_effects <- emmeans(model_mega, ~ pathVisibleC | Experiment * pathGeometryC, at = my_levels)
+print(pairs(emm_vis_effects, adjust = "bonferroni"))
+
+# 3. SUBGROUP STRATIFICATION
+
+cat("\n--- 3. Subgroup Analysis: Geometry * Visibility Interaction within Groups ---\n")
+
+# A. Interaction Contrasts
+emm_group_interaction <- emmeans(model_mega, ~ pathGeometryC * pathVisibleC | GroupC, at = my_levels)
+print(contrast(emm_group_interaction, interaction = c("pairwise", "pairwise"), adjust = "bonferroni"))
+
+# B. Simple Effects of Visibility within Geometry * Group
+cat("\n--- Simple Effects: Visibility differences within Geometry & Group ---\n")
+emm_vis_by_geo_group <- emmeans(model_mega, ~ pathVisibleC | pathGeometryC * GroupC, at = my_levels)
+print(pairs(emm_vis_by_geo_group, adjust = "bonferroni"))
+```
+
+# SECONDARY ANALYSIS: CROSS-EXPERIMENT CONTINUOUS MODERATION (SPLIT-HALF)
+# Rationale: To determine if the Baseline Shift moderation effect found in individual 
+# experiments is robust across all motion axes (Horizontal, Upward, Downward).
+# Method: 
+#   - COVARIATE: Baseline Shift (Linear-Invisible, ODD trials).
+#   - DV: Mean Error (REMAINING trials).
+#   - MODEL: Adds 'Experiment' to test the 4-way interaction.
+
+```{r cross_ancova_splithalf, echo=TRUE, message=FALSE, warning=FALSE}
+
+df_split_prep <- df_mega %>%
+  mutate(is_odd_trial = (trial %% 2) != 0)
+
+# CALCULATE INDEPENDENT COVARIATE (Predictor) 
+# Grouping by 'unique_id'; don't mix participants from different experiments!
+baseline_shift_indep <- df_split_prep %>%
+  filter(pathGeometry == "linear", pathVisible == "invisible", is_odd_trial == TRUE) %>%
+  group_by(unique_id, Experiment) %>% # Keep Experiment for plotting/merging later
+  summarise(
+    shift_linear_invis_odd = mean(errorFwd_px_num, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # Z-score for interpretability (Grand-mean centered across all experiments)
+    shift_z = as.numeric(scale(shift_linear_invis_odd))
+  )
+
+cat("\n--- Independent Covariate Summary (ODD Trials Only) ---\n")
+print(summary(baseline_shift_indep$shift_linear_invis_odd))
+
+# PREPARE ANALYSIS DATA (Outcome)
+# Remove the ODD Linear-Invisible trials used for the covariate.
+df_ancova_trials <- df_split_prep %>%
+  filter(!(pathGeometry == "linear" & pathVisible == "invisible" & is_odd_trial == TRUE))
+
+# Aggregate to Cell Means (1 row per participant per condition)
+df_ancova_valid <- df_ancova_trials %>%
+  group_by(unique_id, Experiment, pathGeometry, pathVisible) %>%
+  summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop") %>%
+  # Join the independent covariate
+  left_join(baseline_shift_indep, by = c("unique_id", "Experiment"))
+
+# Contrast Coding
+# Geometry & Visibility: Effect coding (-0.5, 0.5)
+df_ancova_valid$pathGeometryC <- ifelse(df_ancova_valid$pathGeometry == "sinusoidal", 0.5, -0.5)
+df_ancova_valid$pathVisibleC  <- ifelse(df_ancova_valid$pathVisible  == "visible",    0.5, -0.5)
+
+# Experiment: Sum-to-zero contrasts (matching primary analysis)
+df_ancova_valid$Experiment <- factor(df_ancova_valid$Experiment, 
+                                     levels = c("Horizontal (E1)", "Upward (E2)", "Downward (E3)"))
+contrasts(df_ancova_valid$Experiment) <- contr.sum(3)
+
+# ´RUN MEGA-MODEL (Mixed ANCOVA) 
+# Formula: Error ~ Experiment * Geometry * Visibility * Baseline_Shift + (1 | Participant)
+# look for the 4-way interaction (Experiment:Geometry:Visibility:Shift) to see if the moderation pattern differs by Experiment.
+model_ancova_mega <- lmer(
+  mean_error ~ Experiment * pathGeometryC * pathVisibleC * shift_z + (1 | unique_id),
+  data = df_ancova_valid,
+  control = lmerControl(optimizer = "bobyqa")
+)
+
+cat("\n--- Cross-Experiment ANCOVA Results (Split-Half Validated) ---\n")
+# ANOVA table with Kenward-Roger correction
+print(anova(model_ancova_mega, ddf = "Kenward-Roger"))
+
+# SIMPLE SLOPES PROBE
+# want to see if the Baseline Shift effect holds generally.
+# probe the Geometry x Visibility x Shift interaction (averaged over Experiment if 4-way is ns)
+emm_ancova_mega <- emmeans(
+  model_ancova_mega, ~ pathVisibleC * pathGeometryC | shift_z,
+  at = list(pathGeometryC = c(-0.5, 0.5), pathVisibleC = c(-0.5, 0.5), shift_z = c(-1, 0, 1))
+)
+
+cat("\n--- Interaction Pattern at -1SD, Mean, +1SD Baseline Shift (Averaged across Exps) ---\n")
+print(contrast(emm_ancova_mega, interaction = "pairwise", adjust="holm"))
+
+# VISUALIZATION (Continuous Interaction by Experiment) 
+# do slopes look similar across E1, E2, and E3.
+
+ggplot(df_ancova_valid, aes(x = shift_linear_invis_odd, y = mean_error, color = pathVisible, fill = pathVisible)) +
+  # Reference lines
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey85") +
+  
+  # Individual Points
+  geom_point(alpha = 0.4, size = 1.5) +
+  
+  # Linear Regression Lines
+  geom_smooth(method = "lm", alpha = 0.2, fullrange = FALSE) +
+  
+  facet_grid(Experiment ~ pathGeometry) +
+  
+   scale_color_manual(values = c("invisible" = "black", "visible" = "#E69F00"), name = "Visibility") +
+  scale_fill_manual(values = c("invisible" = "grey20", "visible" = "#E69F00"), name = "Visibility") +
+  
+  labs(
+    title = "Cross-Experiment Continuous Moderation",
+    subtitle = "Does the Baseline Shift strategy predict outcomes similarly across motion axes?",
+    x = "Baseline Shift (px) [Independent ODD trials]",
+    y = "Mean Forward Error (px) [Test trials]"
+  ) +
+  
+  theme_classic(base_size = 12) +
+  theme(
+    strip.background = element_rect(fill = "grey95"),
+    strip.text = element_text(face = "bold"),
+    panel.border = element_rect(color = "black", fill = NA, size = 0.5),
+    legend.position = "bottom"
+  )
+```

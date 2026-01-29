@@ -1,0 +1,2837 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+
+
+<head>
+
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Experiment 3: Representational Momentum</title>
+
+    <style>
+        html,
+
+        body {
+
+            margin: 0;
+
+            padding: 0;
+
+            background: #f0f2f5;
+
+            color: #1a1b1c;
+
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+            height: 100%;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            -webkit-font-smoothing: antialiased;
+
+            -moz-osx-font-smoothing: grayscale;
+
+        }
+
+
+
+        .container {
+
+            width: 100%;
+
+            max-width: 70vw;
+
+            padding: 60px;
+
+            box-sizing: border-box;
+
+            position: relative;
+
+        }
+
+
+
+        header {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            margin-bottom: 25px;
+
+            gap: 15px;
+
+        }
+
+
+
+        header h1 {
+
+            font-size: 24px;
+
+            margin: 0;
+
+            color: #1a1b1c;
+
+        }
+
+
+
+        .controls {
+
+            display: flex;
+
+            gap: 10px;
+
+            align-items: center;
+
+            flex-wrap: wrap;
+
+        }
+
+
+
+        label {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            font-size: 14px;
+
+        }
+
+
+
+        input,
+
+        button {
+
+            padding: 10px 14px;
+
+            border: 1px solid #ced4da;
+
+            background: #fff;
+
+            border-radius: 8px;
+
+            color: #343a40;
+
+            font-family: inherit;
+
+            font-size: 14px;
+
+            cursor: pointer;
+
+            transition: all 0.2s ease;
+
+        }
+
+
+
+        input:focus,
+
+        button:focus {
+
+            outline: none;
+
+            border-color: #4c6ef5;
+
+            box-shadow: 0 0 0 2px rgba(76, 110, 245, 0.2);
+
+        }
+
+
+
+        input[type="number"] {
+
+            width: 70px;
+
+        }
+
+
+
+        input[readonly] {
+
+            background-color: #e9ecef;
+
+            cursor: not-allowed;
+
+        }
+
+
+
+        button#downloadBtn:disabled {
+
+            background-color: #e9ecef;
+
+            cursor: not-allowed;
+
+            color: #adb5bd;
+
+        }
+
+
+
+        #message {
+
+            text-align: center;
+
+            margin: 10px 0;
+
+            color: #495057;
+
+            min-height: 22px;
+
+            font-size: 15px;
+
+        }
+
+
+
+        canvas {
+
+            background: #ffffff;
+
+            border: 1px solid #dee2e6;
+
+            border-radius: 12px;
+
+            width: 100%;
+
+            max-width: 650px;
+
+            height: auto;
+
+            aspect-ratio: 4 / 3;
+
+            display: block;
+
+            margin: 0 auto;
+
+            box-shadow: 0 25px 20px rgba(0, 0, 0, 0.05);
+
+            user-select: none;
+
+            -webkit-user-select: none;
+
+            touch-action: none;
+
+        }
+
+
+
+        #nextTrialBtn {
+
+            display: none;
+
+            position: fixed;
+
+            bottom: 60px;
+
+            left: 50%;
+
+            transform: translateX(-50%);
+
+            padding: 12px 24px;
+
+            font-size: 16px;
+
+            background-color: #4c6ef5;
+
+            color: white;
+
+            border: none;
+
+            z-index: 1100;
+
+        }
+
+
+
+
+
+
+
+        #fullscreenOverlay {
+
+            position: fixed;
+
+            inset: 0;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            background: rgba(0, 0, 0, 0.85);
+
+            z-index: 1000;
+
+        }
+
+
+
+        #enterFullscreen {
+
+            padding: 16px 28px;
+
+            font-size: 18px;
+
+            border: none;
+
+            background: #4c6ef5;
+
+            color: white;
+
+            border-radius: 10px;
+
+            cursor: pointer;
+
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+
+        }
+
+
+
+        #overlay {
+
+            position: fixed;
+
+            inset: 0;
+
+            display: none;
+
+            align-items: center;
+
+            justify-content: center;
+
+            background: rgba(248, 249, 250, 0.9);
+
+            z-index: 999;
+
+        }
+
+
+
+        #overlay .card {
+
+            background: #fff;
+
+            border: 1px solid #dee2e6;
+
+            border-radius: 16px;
+
+            padding: 24px 28px;
+
+            width: 90%;
+
+            max-width: 520px;
+
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+            text-align: center;
+
+        }
+
+
+
+        #overlay h3 {
+
+            margin: 0 0 8px;
+
+            font-size: 22px;
+
+        }
+
+
+
+        #overlay p {
+
+            margin: 0 0 16px;
+
+            line-height: 1.5;
+
+            color: #495057;
+
+        }
+
+
+
+        #continueBtn {
+
+            position: absolute;
+
+            bottom: 60px;
+
+            left: 50%;
+
+            transform: translateX(-50%);
+
+            padding: 12px 24px;
+
+            font-size: 16px;
+
+            background-color: #4c6ef5;
+
+            color: white;
+
+            border: none;
+
+            border-radius: 8px;
+
+            cursor: pointer;
+
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+
+        }
+
+
+
+        /* Fullscreen exit overlay */
+
+        #fsExitOverlay {
+
+            position: fixed;
+
+            inset: 0;
+
+            display: none;
+
+            align-items: center;
+
+            justify-content: center;
+
+            background: rgba(0, 0, 0, 0.85);
+
+            z-index: 2000;
+
+        }
+
+
+
+        #fsExitOverlay .card {
+
+            background: #fff;
+
+            border: 1px solid #dee2e6;
+
+            border-radius: 16px;
+
+            padding: 24px 28px;
+
+            width: 90%;
+
+            max-width: 520px;
+
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+            text-align: center;
+
+        }
+
+
+
+        #returnFullscreenBtn {
+
+            margin-top: 16px;
+
+            padding: 12px 24px;
+
+            font-size: 16px;
+
+            background-color: #4c6ef5;
+
+            color: white;
+
+            border: none;
+
+            border-radius: 8px;
+
+            cursor: pointer;
+
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+
+        }
+    </style>
+
+
+
+    <script type="text/javascript" src="imtScripts.js"></script>
+
+
+
+</head>
+
+
+
+<body>
+
+    <div class="container">
+
+        <header>
+
+            <h1>Experiment: Representational Momentum</h1>
+
+            <div class="controls">
+
+                <label style="display: none;">Trials <input id="trialsInput" type="number" value="80" readonly></label>
+
+                <label style="display: none;">Duration (sec) <input id="tInput" type="number" min="1" step="0.1"
+                        value="3.7"></label>
+
+                <label style="display: none;">Blank (ms) <input id="blankInput" type="number" min="0" step="50"
+                        value="250" readonly></label>
+
+                <label style="display: none;">Amplitude <input id="ampInput" type="number" min="0.025" max="0.25"
+                        step="0.025" value="0.05"></label>
+
+                <label style="display: none;">Cycles <input id="cyclesInput" type="number" min="1" step="1"
+                        value="3"></label>
+
+                <button id="downloadBtn" disabled style="display: none;">Download Data</button>
+
+            </div>
+
+        </header>
+
+
+
+        <div id="message">Click "Start Experiment" to begin.</div>
+
+        <canvas id="canvas" tabindex="0"></canvas>
+
+        <button id="nextTrialBtn">Next Trial</button>
+
+    </div>
+
+
+
+    <div id="fullscreenOverlay">
+
+        <button id="enterFullscreen">Start Experiment</button>
+
+    </div>
+
+
+
+    <div id="overlay">
+
+        <div class="card">
+
+            <h3 id="ovlTitle">Instructions</h3>
+
+            <p id="ovlBody"></p>
+
+            <button id="continueBtn">Continue</button>
+
+        </div>
+
+    </div>
+
+
+
+    <div id="fsExitOverlay" aria-live="polite">
+
+        <div class="card">
+
+            <h3>Experiment Paused.</h3>
+
+            <p>Full-screen mode is required. Please click below to continue the experiment.</p>
+
+            <button id="returnFullscreenBtn">Return to Fullscreen</button>
+
+        </div>
+
+    </div>
+
+
+
+    <script>
+
+        // --- DOM Elements ---
+
+        const canvas = document.getElementById('canvas');
+
+        const ctx = canvas.getContext('2d');
+
+        const msg = document.getElementById('message');
+
+        const overlay = document.getElementById('overlay');
+
+        const ovlTitle = document.getElementById('ovlTitle');
+
+        const ovlBody = document.getElementById('ovlBody');
+
+        const continueBtn = document.getElementById('continueBtn');
+
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        const nextTrialBtn = document.getElementById('nextTrialBtn');
+
+        const trialsInput = document.getElementById('trialsInput');
+
+        const tInput = document.getElementById('tInput');
+
+        const blankInput = document.getElementById('blankInput');
+
+        const ampInput = document.getElementById('ampInput');
+
+        const cyclesInput = document.getElementById('cyclesInput');
+
+
+
+        const fsExitOverlay = document.getElementById('fsExitOverlay');
+
+        const returnFullscreenBtn = document.getElementById('returnFullscreenBtn');
+
+
+
+        // --- Canvas and Geometry Scaling ---
+
+        let canvasWidth, canvasHeight, midX, midY, pathWidth, pathHeight;
+
+
+
+        // --- PARAMETERS ---
+
+        const FIXED_BLANK_MS = 250; // Fixed Retention Interval (RI) at 250ms
+
+        const CLICK_SNAP_CM = 0.5; // Click Snapping Threshold (0.5cm)
+
+        let CLICK_SNAP_PX;
+
+        // ------------------------------------
+
+
+
+        // Freeze canvas size during experiment so leaving fullscreen doesn't rescale anything
+
+        let FREEZE_CANVAS_SIZE = false;
+
+
+
+        //IMT stuff
+
+        var sessionStart = pad(Date.now(), 16);
+
+        var sessionKey = pad(Math.floor(Math.random() * 1000), 4);
+
+        var uniqueID = sessionStart + "_" + sessionKey;
+
+        var thisParam1;
+
+        var thisParam2;
+
+        var thisParam3;
+
+        var thisParam4;
+
+        var thisParam5;
+
+        var prolificSession;
+
+
+
+        if (thisParam1 = getUrlParameter('ID')) {
+
+            sessionStart = thisParam1;
+
+        } else {
+
+            sessionStart = pad(Date.now(), 16);
+
+        }
+
+
+
+        if (thisParam2 = getUrlParameter('SESSION')) {
+
+            sessionKey = thisParam2;
+
+        } else {
+
+            sessionKey = Math.floor(Math.random() * 1000);
+
+            sessionKey = pad(sessionKey, 4);
+
+        }
+
+
+
+        if ((thisParam3 = getUrlParameter('SOURCE')) == "PROLIFIC") {
+
+            prolificSession = true;
+
+        } else {
+
+            prolificSession = false;
+
+        }
+
+
+
+
+
+        if (thisParam4 = getUrlParameter('DATA')) {
+
+            if (thisParam4 == 0) {
+
+                dataString = "&DATA=0";
+
+            } else {
+
+                dataString = "&DATA=1";
+
+            }
+
+        } else {
+
+            dataString = "&DATA=1";
+
+        }
+
+
+
+
+
+
+
+        uniqueID = sessionStart + "_" + sessionKey;
+
+
+
+
+
+        function cmToPixels(cm) {
+
+            // Standard assumption: 96 pixels per inch (PPI) for CSS pixels
+
+            const inches = cm / 2.54;
+
+            const dpi = 96;
+
+            // We multiply by devicePixelRatio to work in the canvas's coordinate system
+
+            return inches * dpi * window.devicePixelRatio;
+
+        }
+
+
+
+        function resizeCanvas() {
+
+            if (FREEZE_CANVAS_SIZE) return;
+
+
+
+            const canvasContainer = document.querySelector('.container');
+
+            const containerWidth = canvasContainer.clientWidth;
+
+
+
+            const cssMaxWidth = 650; // JS function now respects the 650px CSS max-width
+
+            // The size is the *smaller* of the container width and our max width
+
+            // And it can't be smaller than 300px.
+
+            const size = Math.max(300, Math.min(containerWidth, cssMaxWidth));
+
+
+
+            const aspectRatio = 4 / 3;
+
+
+
+            canvas.width = size * window.devicePixelRatio;
+
+            canvas.height = (size / aspectRatio) * window.devicePixelRatio;
+
+
+
+            canvas.style.width = `${size}px`;
+
+            canvas.style.height = `${size / aspectRatio}px`;
+
+
+
+            canvasWidth = canvas.width;
+
+            canvasHeight = canvas.height;
+
+            midX = canvasWidth / 2;
+
+            midY = canvasHeight / 2;
+
+
+
+            const pathLength = Math.min(canvasWidth, canvasHeight) * 0.99;
+
+            pathWidth = pathLength;
+
+            pathHeight = pathWidth;
+
+
+
+            SINE_AMPLITUDE = parseFloat(ampInput.value);
+
+            SINE_CYCLES = parseFloat(cyclesInput.value);
+
+
+
+            // Recalculate snap distance
+
+            CLICK_SNAP_PX = cmToPixels(CLICK_SNAP_CM);
+
+        }
+
+
+
+
+
+        window.addEventListener('resize', resizeCanvas);
+
+
+
+        // --- Parameters ---
+
+        const dotR = 6 * window.devicePixelRatio; // Dot radius
+
+        let DURATION_SEC, SINE_AMPLITUDE, SINE_CYCLES;
+
+        const NORM_45 = 1 / Math.sqrt(2); // Normalization factor for 45 degrees
+
+        const RESPONSE_WINDOW_MS = 6000; // Max time for user to click
+
+        const INTER_TRIAL_BLANK_MS = 500; // Blank screen between trials
+
+        const PRE_STIMULUS_DELAY = { min: 500, max: 1000 }; // Onset delay 500-1000ms
+
+        const TRIALS_PER_BLOCK = 20; // Number of trials before a break
+
+        const TARGET_FPS = 60; // Target animation framerate
+
+        const FRAME_INTERVAL = 1000 / TARGET_FPS; // Duration of a single frame
+
+        let BASE_SPEED_PX_PER_MS = 0; // Base speed, calculated in startExperiment
+
+
+
+        // --- Arc Length and Path Integration Parameters ---
+
+        let arcLengthCache = {}; // Cache stores {total: length, segments: [{p, length}, ...]}
+
+        const ARC_STEPS = 500; // Number of segments for path integration
+
+        const VANISH_WINDOW = { min: 0.6, max: 0.8 }; // Dot vanishes between 60% and 80% of path
+
+        function sampleVanishP() {
+
+            const range = VANISH_WINDOW.max - VANISH_WINDOW.min;
+
+            const randomFactor = Math.random();
+
+            return VANISH_WINDOW.min + randomFactor * range;
+
+        }
+
+
+
+        // --- State ---
+
+        let running = false, trialIndex = 0, trials = [], dataRecords = [], animationFrameId;
+
+        let experimentStartTimeCET;
+
+        let EXPERIMENT_FINALIZED = false;
+
+        let isTrialActive = false;
+
+
+
+        // Mouse drift guard for response phase
+
+        let driftGuard = {
+
+            armed: false,
+
+            start: null,
+
+            moved: false
+
+        };
+
+        const DRIFT_GUARD_THRESHOLD = 3 * window.devicePixelRatio; // Max pixels mouse can move during click
+
+
+
+        // Mouse move guard for animation phase
+
+        let mouseMovedDuringAnimation = false;
+
+        let armAnimationMouseGuard = false;
+
+        const ANIMATION_MOVE_THRESHOLD = 8; // Max pixels mouse can move during animation
+
+
+
+        // Fullscreen interrupt state
+
+        let fullscreenInterrupted = false;
+
+        let onFullscreenInterrupt = null; // Callback for when FS is interrupted
+
+
+
+        // --- Helper Functions ---
+
+        function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+        function clearCanvas() { ctx.clearRect(0, 0, canvasWidth, canvasHeight); }
+
+        function delay(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+        function sampleDelay(range) { return range.min + Math.random() * (range.max - range.min); }
+
+        function euclideanDist(p1, p2) { return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2)); }
+
+
+
+        function getMousePosOnCanvas(e) {
+
+            const rect = canvas.getBoundingClientRect();
+
+            const scaleX = canvas.width / rect.width;
+
+            const scaleY = canvas.height / rect.height;
+
+            return {
+
+                x: (e.clientX - rect.left) * scaleX,
+
+                y: (e.clientY - rect.top) * scaleY
+
+            };
+
+        }
+
+
+
+        function areTrialsIdentical(t1, t2) {
+
+            if (!t1 || !t2) return false;
+
+            const sameBasic = t1.motionPath === t2.motionPath &&
+
+                t1.pathGeometry === t2.pathGeometry &&
+
+                t1.direction === t2.direction &&
+
+                t1.pathVisibility === t2.pathVisibility;
+
+            if (!sameBasic) return false;
+
+            if (t1.pathGeometry !== 'sinusoidal') return true;
+
+            return Math.abs((t1.phaseOffset || 0) - (t2.phaseOffset || 0)) < 1e-3;
+
+        }
+
+
+
+        function isDifferentCondition(a, b) {
+
+            if (!a || !b) return false;
+
+            return a.motionPath !== b.motionPath ||
+
+                a.pathGeometry !== b.pathGeometry ||
+
+                a.direction !== b.direction ||
+
+                a.pathVisibility !== b.pathVisibility;
+
+        }
+
+
+
+        // --- Path Definitions ---
+
+        const pathDefs = {
+            'horizontal': {
+                getPoint: (p, amp, angle) => ({ x: (midX - pathWidth / 2) + p * pathWidth, y: midY - amp * Math.sin(angle) }),
+                dir: { x: 1, y: 0 }
+            },
+            'upward': {
+                getPoint: (p, amp, angle) => {
+                    const x_span = pathWidth * NORM_45;
+                    const y_span = pathHeight * NORM_45;
+                    const startX = midX - x_span / 2;
+                    const startY = midY + y_span / 2;
+                    return {
+                        x: startX + p * x_span - amp * Math.sin(angle) * NORM_45,
+                        y: startY - p * y_span - amp * Math.sin(angle) * NORM_45
+                    };
+                },
+                dir: { x: NORM_45, y: -NORM_45 }
+            },
+            'downward': {
+                getPoint: (p, amp, angle) => {
+                    const x_span = pathWidth * NORM_45;
+                    const y_span = pathHeight * NORM_45;
+                    const startX = midX - x_span / 2;
+                    const startY = midY - y_span / 2;
+                    return {
+                        x: startX + p * x_span - amp * Math.sin(angle) * NORM_45,
+                        y: startY + p * y_span + amp * Math.sin(angle) * NORM_45
+                    };
+                },
+                dir: { x: NORM_45, y: NORM_45 }
+            }
+        };
+            
+
+
+
+        // --- 1. Arc Length Cache Builder ---
+
+        // Pre-calculates the arc length of a path for speed-independent motion
+
+        function buildArcLengthCache(tr) {
+
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+
+            if (arcLengthCache[key]) return;
+
+
+
+            const definition = pathDefs[tr.motionPath];
+
+            const geometry = tr.pathGeometry;
+
+            const phaseOffset = tr.phaseOffset || 0;
+
+            const amp = (geometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+
+
+
+            let totalLength = 0;
+
+            let segments = [];
+
+            let prevPoint = definition.getPoint(0, amp, phaseOffset);
+
+
+
+            for (let i = 1; i <= ARC_STEPS; i++) {
+
+                const p_norm = i / ARC_STEPS;
+
+                const angle = (geometry === 'sinusoidal') ? (SINE_CYCLES * p_norm * 2 * Math.PI + phaseOffset) : 0;
+
+                const currentPoint = definition.getPoint(p_norm, amp, angle);
+
+
+
+                const segmentLength = euclideanDist(prevPoint, currentPoint);
+
+                totalLength += segmentLength;
+
+                segments.push({ p: p_norm, length: totalLength });
+
+
+
+                prevPoint = currentPoint;
+
+            }
+
+
+
+            arcLengthCache[key] = {
+
+                total: totalLength,
+
+                segments: segments
+
+            };
+
+        }
+
+
+
+        // --- 2. Get Normalized Progress at True Arc Length ---
+
+        // Converts a pixel distance (targetLength) into a normalized progress 'p' (0-1)
+
+        function getPAtArcLength(tr, targetLength) {
+
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+
+            const cache = arcLengthCache[key];
+
+            if (!cache || !cache.total) return 0;
+
+
+
+            if (targetLength <= 0) return 0;
+
+            if (targetLength >= cache.total) return 1;
+
+
+
+            let lowerSegment = { p: 0, length: 0 };
+
+            let upperSegment = cache.segments[cache.segments.length - 1];
+
+
+
+            // Binary search could be faster, but linear is fine for ARC_STEPS=500
+
+            for (const seg of cache.segments) {
+
+                if (seg.length <= targetLength) {
+
+                    lowerSegment = seg;
+
+                } else {
+
+                    upperSegment = seg;
+
+                    break;
+
+                }
+
+            }
+
+            const lengthRange = upperSegment.length - lowerSegment.length;
+
+            if (lengthRange === 0) return lowerSegment.p;
+
+
+
+            const pRange = upperSegment.p - lowerSegment.p;
+
+            const progressInSegment = (targetLength - lowerSegment.length) / lengthRange;
+
+
+
+            return lowerSegment.p + progressInSegment * pRange;
+
+        }
+
+
+
+        // Converts a normalized progress 'p' (0-1) into a pixel distance
+
+        function getArcLengthAtP(tr, p_target) {
+
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+
+            const cache = arcLengthCache[key];
+
+            if (!cache || !cache.total || p_target <= 0) return 0;
+
+            if (p_target >= 1) return cache.total;
+
+
+
+            let lowerSegment = { p: 0, length: 0 };
+
+            let upperSegment = cache.segments[cache.segments.length - 1];
+
+
+
+            for (const seg of cache.segments) {
+
+                if (seg.p <= p_target) {
+
+                    lowerSegment = seg;
+
+                } else {
+
+                    upperSegment = seg;
+
+                    break;
+
+                }
+
+            }
+
+
+
+            const pRange = upperSegment.p - lowerSegment.p;
+
+            if (pRange === 0) return lowerSegment.length;
+
+
+
+            const lengthRange = upperSegment.length - lowerSegment.length;
+
+            const progressInSegment = (p_target - lowerSegment.p) / pRange;
+
+
+
+            return lowerSegment.length + progressInSegment * lengthRange;
+
+        }
+
+
+
+        // --- Find Closest Point on Path ---
+
+        // Uses a coarse search followed by a fine ternary search to find the nearest point
+
+        function findClosestPointOnPath(tr, clickPoint) {
+
+            const definition = pathDefs[tr.motionPath];
+
+            const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+
+            const cache = arcLengthCache[key];
+
+            const totalLen = cache.total;
+
+
+
+            const amp = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+
+            const phase = tr.phaseOffset || 0;
+
+
+
+            function pointAtP(p) {
+
+                const angle = (tr.pathGeometry === 'sinusoidal')
+
+                    ? (SINE_CYCLES * p * 2 * Math.PI + phase)
+
+                    : 0;
+
+                return definition.getPoint(p, amp, angle);
+
+            }
+
+
+
+            // 1. Coarse search
+
+            const COARSE_STEPS = 300;
+
+            let bestS = 0;
+
+            let bestP = 0;
+
+            let bestPt = pointAtP(0);
+
+            let bestD = euclideanDist(clickPoint, bestPt);
+
+
+
+            for (let i = 1; i <= COARSE_STEPS; i++) {
+
+                const s = totalLen * (i / COARSE_STEPS);
+
+                const p = getPAtArcLength(tr, s);
+
+                const pt = pointAtP(p);
+
+                const d = euclideanDist(clickPoint, pt);
+
+                if (d < bestD) {
+
+                    bestD = d; bestS = s; bestP = p; bestPt = pt;
+
+                }
+
+            }
+
+
+
+            // 2. Fine (ternary) search in the local minimum
+
+            let lo = Math.max(0, bestS - totalLen * 0.02);
+
+            let hi = Math.min(totalLen, bestS + totalLen * 0.02);
+
+
+
+            const REFINE_ITERS = 20;
+
+            for (let k = 0; k < REFINE_ITERS; k++) {
+
+                const m1 = lo + (hi - lo) / 3;
+
+                const m2 = hi - (hi - lo) / 3;
+
+
+
+                const p1 = getPAtArcLength(tr, m1);
+
+                const pt1 = pointAtP(p1);
+
+                const d1 = euclideanDist(clickPoint, pt1);
+
+
+
+                const p2 = getPAtArcLength(tr, m2);
+
+                const pt2 = pointAtP(p2);
+
+                const d2 = euclideanDist(clickPoint, pt2);
+
+
+
+                if (d1 < d2) {
+
+                    hi = m2;
+
+                    if (d1 < bestD) { bestD = d1; bestS = m1; bestP = p1; bestPt = pt1; }
+
+                } else {
+
+                    lo = m1;
+
+                    if (d2 < bestD) { bestD = d2; bestS = m2; bestP = p2; bestPt = pt2; }
+
+                }
+
+            }
+
+
+
+            return { p: bestP, point: bestPt, distance: bestD };
+
+        }
+
+
+
+        // drawTrack is used for both animation (if visible) and response (always)
+
+        function drawTrack(tr) {
+
+            const path = tr.motionPath;
+
+            const geometry = tr.pathGeometry;
+
+            const phaseOffset = tr.phaseOffset || 0;
+
+
+
+            ctx.strokeStyle = '#1f2a44';
+
+            ctx.lineWidth = 2 * window.devicePixelRatio;
+
+            ctx.beginPath();
+
+            const definition = pathDefs[path];
+
+            const amp = (geometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+
+            const steps = 100;
+
+
+
+            for (let i = 0; i <= steps; i++) {
+
+                const p_norm = i / steps;
+
+                const angle = (geometry === 'sinusoidal') ? (SINE_CYCLES * p_norm * 2 * Math.PI + phaseOffset) : 0;
+
+                const currentPoint = definition.getPoint(p_norm, amp, angle);
+
+
+
+                if (i === 0) ctx.moveTo(currentPoint.x, currentPoint.y);
+
+                else ctx.lineTo(currentPoint.x, currentPoint.y);
+
+            }
+
+            ctx.stroke();
+
+        }
+
+
+
+        // --- Fullscreen and Experiment Start ---
+
+        document.getElementById('enterFullscreen').addEventListener('click', async () => {
+
+            document.getElementById('fullscreenOverlay').style.display = 'none';
+
+            try { await document.documentElement.requestFullscreen?.(); } catch (err) { console.warn("Fullscreen request failed:", err); }
+
+            resizeCanvas(); // Resize *after* entering fullscreen
+
+            startExperiment();
+
+        });
+
+
+
+        function waitContinue() {
+
+            return new Promise(res => {
+
+                continueBtn.addEventListener('click', res, { once: true });
+
+            });
+
+        }
+
+
+
+        // Fullscreen lifecycle handling
+
+        function showFsOverlay() {
+
+            fsExitOverlay.style.display = 'flex';
+
+        }
+
+        function hideFsOverlay() {
+
+            fsExitOverlay.style.display = 'none';
+
+        }
+
+        function waitForFullscreen() {
+
+            return new Promise(resolve => {
+
+                if (document.fullscreenElement) return resolve();
+
+                const handler = () => {
+
+                    if (document.fullscreenElement) {
+
+                        document.removeEventListener('fullscreenchange', handler);
+
+                        resolve();
+
+                    }
+
+                };
+
+                document.addEventListener('fullscreenchange', handler);
+
+            });
+
+        }
+
+        returnFullscreenBtn.addEventListener('click', async () => {
+
+            try { await document.documentElement.requestFullscreen?.(); } catch { }
+
+        });
+
+
+
+        document.addEventListener('fullscreenchange', () => {
+
+            if (!document.fullscreenElement && running) {
+
+                fullscreenInterrupted = true;
+
+                showFsOverlay();
+
+                if (typeof onFullscreenInterrupt === 'function') {
+
+                    onFullscreenInterrupt();
+
+                }
+
+            } else if (document.fullscreenElement && fullscreenInterrupted) {
+
+                fullscreenInterrupted = false; // Reset the interruption flag
+
+                hideFsOverlay();
+
+            }
+
+        });
+
+
+
+        // --- Trial Structure ---
+
+        function buildTrials() {
+            // *** DOWNWARD EXPERIMENT CONFIGURATION ***
+            const pathTypes = [
+                // "Downward-Right" paths (top-left to bottom-right)
+                { motionPath: 'downward', pathGeometry: 'linear', direction: 1 },
+                { motionPath: 'downward', pathGeometry: 'sinusoidal', direction: 1 },
+                // "Downward-Left" paths (top-right to bottom-left) [Uses 'upward' reversed]
+                { motionPath: 'upward', pathGeometry: 'linear', direction: -1 }, 
+                { motionPath: 'upward', pathGeometry: 'sinusoidal', direction: -1 }
+            ];
+
+            const visibilityFactors = [
+                { pathVisibility: 'visible' },
+                { pathVisibility: 'invisible' }
+            ];
+
+            // *** 8 unique conditions ***
+            const allTrialTypes = [];
+            pathTypes.forEach(pathType => {
+                visibilityFactors.forEach(visibility => {
+                    allTrialTypes.push({ ...pathType, ...visibility }); 
+                });
+            });
+
+            let trials = [];
+            const repetitions = 10; // 10 repetitions * 8 conditions = 80 trials
+            for (let i = 0; i < repetitions; i++) {
+                trials.push(...allTrialTypes);
+            }
+
+            shuffle(trials);
+
+            return trials.map((t, i) => {
+                const trial = { ...t, idx: i + 1, vanishP: sampleVanishP() };
+                if (trial.pathGeometry === 'sinusoidal') {
+                    trial.phaseOffset = Math.random() * 2 * Math.PI;
+                } else {
+                    trial.phaseOffset = 0;
+                }
+                return trial;
+            });
+        }
+
+
+        // --- Core Trial Logic ---
+
+        function handleError(message, resolve) {
+
+            msg.textContent = message;
+
+            document.body.style.cursor = 'default';
+
+            nextTrialBtn.textContent = 'Continue';
+
+            nextTrialBtn.style.display = 'block';
+
+
+
+            nextTrialBtn.addEventListener('click', () => {
+
+                nextTrialBtn.style.display = 'none';
+
+                nextTrialBtn.textContent = 'Next Trial';
+
+                onFullscreenInterrupt = null;
+
+                resolve(false); // resolve(false) signals to the main loop to retry the trial
+
+            }, { once: true });
+
+        }
+
+
+
+        function runOneTrial(tr, totalTrials) {
+
+            return new Promise(resolve => {
+
+                // Apply +/- 10% random speed variation
+
+                const speedVariation = 0.90 + (Math.random() * 0.20);
+
+                const speed_px_ms = BASE_SPEED_PX_PER_MS * speedVariation;
+
+                buildArcLengthCache(tr);
+
+                const cacheKey = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+
+                const totalPathLength = arcLengthCache[cacheKey].total;
+
+                const startTS = performance.now();
+
+
+
+                // Animation smoothing logic
+
+                let lastFrameTime = startTS;
+
+                let accumulatedTime = 0;
+
+                let totalElapsed = 0; // This is the "true" animation time
+
+
+
+                let vanished = false;
+
+                let vanishPos = { x: null, y: null };
+
+                let vanishArcLen = null;
+
+
+
+                const definition = pathDefs[tr.motionPath];
+
+
+
+                // Calculate random start offset (0-20% of path length)
+
+                const randomStartOffsetPx = Math.random() * (totalPathLength * 0.20);
+
+
+
+                // Calculate duration and vanish time based on the *visible* path
+
+                const visiblePathLengthPx = totalPathLength - randomStartOffsetPx;
+
+                const vanishTimeMs = (visiblePathLengthPx * tr.vanishP) / speed_px_ms;
+
+
+
+
+
+                // --- Animation Phase Mouse Guard ---
+
+                mouseMovedDuringAnimation = false;
+
+                armAnimationMouseGuard = false;
+
+                isTrialActive = true;
+
+
+
+                const handleAnimationMouseMove = (e) => {
+
+                    if (!isTrialActive || !armAnimationMouseGuard) return;
+
+
+
+                    const dx = e.movementX || 0;
+
+                    const dy = e.movementY || 0;
+
+
+
+                    if ((dx * dx + dy * dy) >= (ANIMATION_MOVE_THRESHOLD * ANIMATION_MOVE_THRESHOLD)) {
+
+                        mouseMovedDuringAnimation = true;
+
+                    }
+
+                };
+
+
+
+                document.addEventListener('mousemove', handleAnimationMouseMove);
+
+                setTimeout(() => { armAnimationMouseGuard = true; }, 150);
+
+
+
+
+
+                onFullscreenInterrupt = () => {
+
+                    try { cancelAnimationFrame(animationFrameId); } catch { }
+
+                    isTrialActive = false;
+
+                    document.removeEventListener('mousemove', handleAnimationMouseMove);
+
+                    canvas.removeEventListener('mousedown', onMouseDown);
+
+                    document.removeEventListener('mousemove', onMouseMove);
+
+                    document.removeEventListener('click', onClick, true);
+
+                    clearTimeout(clickPhase?.timeoutId);
+
+
+
+                    msg.textContent = 'Fullscreen was exited. Click "Return to Fullscreen" to repeat this trial.';
+
+                    resolve(false);
+
+                    onFullscreenInterrupt = null;
+
+                };
+
+
+
+                let onMouseDown, onMouseMove, onClick, clickPhase;
+
+
+
+
+
+                const frame = (now) => {
+
+                    animationFrameId = requestAnimationFrame(frame);
+
+
+
+                    // --- CHECK 1: Animation Mouse Move ---
+
+                    if (mouseMovedDuringAnimation) {
+
+                        cancelAnimationFrame(animationFrameId);
+
+                        isTrialActive = false;
+
+                        document.removeEventListener('mousemove', handleAnimationMouseMove);
+
+                        handleError('Mouse moved during trial. Please click "Continue" to restart.', resolve);
+
+                        return;
+
+                    }
+
+
+
+                    // --- CHECK 2: Fullscreen Exit ---
+
+                    if (fullscreenInterrupted) {
+
+                        cancelAnimationFrame(animationFrameId);
+
+                        isTrialActive = false;
+
+                        document.removeEventListener('mousemove', handleAnimationMouseMove);
+
+                        onFullscreenInterrupt = null;
+
+                        resolve(false);
+
+                        return;
+
+                    }
+
+
+
+                    // --- Animation smoothing logic ---
+
+                    const delta = now - lastFrameTime;
+
+                    lastFrameTime = now;
+
+                    accumulatedTime += delta;
+
+
+
+                    // Run the update logic at a fixed 60Hz rate
+
+                    while (accumulatedTime >= FRAME_INTERVAL) {
+
+                        if (vanished) break; // Don't advance time if dot has vanished
+
+
+
+                        totalElapsed += FRAME_INTERVAL; // This is the "true" animation time
+
+
+
+                        // Check for vanish *before* drawing
+
+                        if (!vanished && totalElapsed >= vanishTimeMs) {
+
+                            vanished = true;
+
+
+
+                            // Calculate precise vanish position based on vanishTimeMs
+
+                            const vanishDistTravelled = speed_px_ms * vanishTimeMs + randomStartOffsetPx;
+
+                            const cappedVanishDist = Math.min(vanishDistTravelled, totalPathLength);
+
+
+
+                            vanishArcLen = (tr.direction === 1) ? cappedVanishDist : (totalPathLength - cappedVanishDist);
+
+
+
+                            const p_norm_vanish = getPAtArcLength(tr, vanishArcLen);
+
+                            const amp_vanish = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+
+                            const angle_vanish = (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_norm_vanish * 2 * Math.PI + (tr.phaseOffset || 0)) : 0;
+
+                            vanishPos = definition.getPoint(p_norm_vanish, amp_vanish, angle_vanish);
+
+
+
+                            // Stop the animation loop
+
+                            cancelAnimationFrame(animationFrameId);
+
+
+
+                            // --- SCIENTIFIC PROTOCOL ---
+
+                            // 1. Blank the canvas IMMEDIATELY
+
+                            clearCanvas();
+
+
+
+                            isTrialActive = false;
+
+                            document.removeEventListener('mousemove', handleAnimationMouseMove);
+
+
+
+                            // 2. Wait 250ms (while canvas is blank)
+
+                            setTimeout(() => {
+
+                                if (fullscreenInterrupted) {
+
+                                    return;
+
+                                }
+
+
+
+                                // 3. Draw the track AFTER the blank interval
+
+                                // This happens for ALL conditions
+
+                                drawTrack(tr);
+
+
+
+                                document.body.style.cursor = 'default';
+
+                                msg.textContent = 'Click where the dot vanished.';
+
+
+
+                                driftGuard = { armed: false, start: null, moved: false };
+
+                                isTrialActive = true;
+
+
+
+                                clickPhase = { active: true, timeoutId: null };
+
+
+
+                                const cleanup = () => { // Parameter 'message' removed
+
+                                    if (!clickPhase.active) return; // Prevent double-cleanup
+
+                                    clickPhase.active = false;
+
+                                    isTrialActive = false;
+
+                                    canvas.removeEventListener('mousedown', onMouseDown);
+
+                                    document.removeEventListener('mousemove', onMouseMove);
+
+                                    document.removeEventListener('click', onClick, true);
+
+                                    clearTimeout(clickPhase.timeoutId);
+
+                                };
+
+
+
+
+
+                                onMouseDown = (e) => {
+
+                                    if (!isTrialActive || !clickPhase.active || e.button !== 0) return;
+
+                                    driftGuard.start = getMousePosOnCanvas(e);
+
+                                    driftGuard.armed = true;
+
+                                    driftGuard.moved = false;
+
+                                };
+
+
+
+                                onMouseMove = (e) => {
+
+                                    if (!isTrialActive || !clickPhase.active || !driftGuard.armed) return;
+
+                                    const pos = getMousePosOnCanvas(e);
+
+                                    const dx = pos.x - driftGuard.start.x;
+
+                                    const dy = pos.y - driftGuard.start.y;
+
+                                    if ((dx * dx + dy * dy) >= (DRIFT_GUARD_THRESHOLD * DRIFT_GUARD_THRESHOLD)) {
+
+                                        driftGuard.moved = true;
+
+                                        cleanup();
+
+                                        handleError('Mouse moved during response. Please click "Continue" to restart.', resolve);
+
+                                    }
+
+                                };
+
+
+
+                                onClick = (e) => {
+
+                                    if (!isTrialActive || !clickPhase.active || e.button !== 0) return;
+
+                                    if (fullscreenInterrupted) { cleanup(); return; }
+
+                                    if (driftGuard.moved) return;
+
+
+
+                                    const clickPos = getMousePosOnCanvas(e);
+
+                                    const closest = findClosestPointOnPath(tr, clickPos);
+
+                                    const errorEuclidean_px = euclideanDist(clickPos, vanishPos);
+
+
+
+                                    // "Click Too Far" logic from pilot file
+
+                                    // Compute orthogonal error at the clicked point
+
+                                    const p_before = Math.max(0, Math.min(1, closest.p - 0.001));
+
+                                    const p_after = Math.max(0, Math.min(1, closest.p + 0.001));
+
+                                    const tan_amp = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+
+                                    const phase = tr.phaseOffset || 0;
+
+
+
+                                    const angle_before = (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_before * 2 * Math.PI + phase) : 0;
+
+                                    const angle_after = (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_after * 2 * Math.PI + phase) : 0;
+
+
+
+                                    const point_before = definition.getPoint(p_before, tan_amp, angle_before);
+
+                                    const point_after = definition.getPoint(p_after, tan_amp, angle_after);
+
+
+
+                                    const tangent = { x: point_after.x - point_before.x, y: point_after.y - point_before.y };
+
+                                    const mag = Math.hypot(tangent.x, tangent.y);
+
+                                    const unitTangent = (mag > 0) ? { x: tangent.x / mag, y: tangent.y / mag } : pathDefs[tr.motionPath].dir;
+
+                                    const unitNormal = { x: -unitTangent.y, y: unitTangent.x };
+
+
+
+                                    const clickVector = { x: clickPos.x - closest.point.x, y: clickPos.y - closest.point.y };
+
+                                    const orthErr = clickVector.x * unitNormal.x + clickVector.y * unitNormal.y;
+
+
+
+                                    const acceptanceThreshold_px = CLICK_SNAP_PX; // 0.5cm
+
+
+
+                                    if (Math.abs(orthErr) > acceptanceThreshold_px) {
+
+                                        msg.textContent = 'Click was too far from the path. Please try again.';
+
+                                        // Reset drift guard but keep listeners active
+
+                                        driftGuard.armed = false;
+
+                                        driftGuard.moved = false;
+
+                                        // Do NOT cleanup, resolve, or record. Just wait for the next click.
+
+                                        return;
+
+                                    }
+
+
+
+                                    // --- Click is VALID ---
+
+                                    cleanup(); // Stop listeners
+
+
+
+                                    // 1. Calculate Forward Error FIRST (Arc Length)
+
+                                    const clickArcLength = getArcLengthAtP(tr, closest.p);
+
+                                    const fwdErr = (tr.direction === 1)
+
+                                        ? (clickArcLength - vanishArcLen)
+
+                                        : (vanishArcLen - clickArcLength);
+
+
+
+                                    // 2. Define Outlier based on Forward Error (Distance along the path)
+
+                                    // We check if the absolute forward error is greater than the threshold
+
+                                    const outlierThreshold_px = 150 * window.devicePixelRatio;
+
+                                    const isOutlier = Math.abs(fwdErr) > outlierThreshold_px;
+
+
+
+                                    // 3. Format Euclidean for CSV (We still record it, but don't use it for the flag)
+
+                                    const errorEuclidean_px_css = +(errorEuclidean_px / window.devicePixelRatio).toFixed(2);
+
+
+
+                                    // 4. Calculate temporal error
+
+                                    const errorTemp_ms = Math.abs(fwdErr) / speed_px_ms;
+
+
+
+                                    const errorFwd_px_css = +(fwdErr / window.devicePixelRatio).toFixed(2);
+
+                                    const errorOrth_px_css = +(orthErr / window.devicePixelRatio).toFixed(2);
+
+
+
+                                    dataRecords.push({
+
+                                        fileID: uniqueID,
+
+                                        trial: tr.idx,
+
+                                        motionPath: tr.motionPath,
+
+                                        pathGeometry: tr.pathGeometry,
+
+                                        direction: tr.direction,
+
+                                        experiment_start_time: experimentStartTimeCET,
+
+                                        vanishP: +tr.vanishP.toFixed(4),
+
+                                        vanishX_px: +vanishPos.x.toFixed(2),
+
+                                        vanishY_px: +vanishPos.y.toFixed(2),
+
+                                        clickX_px: +clickPos.x.toFixed(2),
+
+                                        clickY_px: +clickPos.y.toFixed(2),
+
+                                        snappedX_px: +closest.point.x.toFixed(2), // Snapped click position
+
+                                        snappedY_px: +closest.point.y.toFixed(2),
+
+                                        errorFwd_px: errorFwd_px_css,
+
+                                        errorOrth_px: errorOrth_px_css,
+
+                                        errorTemp_ms: +errorTemp_ms.toFixed(2),
+
+                                        errorEuclidean_px: errorEuclidean_px_css,
+
+                                        isOutlier: isOutlier,
+
+                                        speed_px_s: +(speed_px_ms * 1000).toFixed(2),
+
+                                        speed_px_ms_actual: +speed_px_ms.toFixed(5),
+
+                                        startOffset_px: +randomStartOffsetPx.toFixed(2),
+
+                                        pathVisible: tr.pathVisibility,
+
+                                        response_timestamp: Date.now()
+
+                                    });
+
+
+
+                                    //IMT
+
+                                    let tempData = convertToCSV([dataRecords[dataRecords.length - 1]], tr.idx)
+
+                                    sendToServer(tempData);
+
+
+
+                                    clearCanvas();
+
+                                    drawTrack(tr); // Redraw track for final display
+
+
+
+                                    // Visualize the response at the snapped point
+
+                                    ctx.fillStyle = '#000000';
+
+                                    ctx.beginPath();
+
+                                    ctx.arc(closest.point.x, closest.point.y, dotR, 0, Math.PI * 2);
+
+                                    ctx.fill();
+
+                                    msg.textContent = 'Response recorded.';
+
+
+
+                                    onFullscreenInterrupt = null;
+
+
+
+                                    nextTrialBtn.style.display = 'block';
+
+                                    nextTrialBtn.addEventListener('click', () => {
+
+                                        nextTrialBtn.style.display = 'none';
+
+                                        resolve(true); // resolve(true) signals success
+
+                                    }, { once: true });
+
+                                };
+
+
+
+                                // Arm listeners for response phase
+
+                                canvas.addEventListener('mousedown', onMouseDown);
+
+                                document.addEventListener('mousemove', onMouseMove);
+
+                                document.addEventListener('click', onClick, true);
+
+
+
+                                // Timeout for the *entire* response phase
+
+                                clickPhase.timeoutId = setTimeout(() => {
+
+                                    cleanup();
+
+                                    dataRecords.push({
+
+                                        trial: tr.idx,
+
+                                        motionPath: tr.motionPath,
+
+                                        pathGeometry: tr.pathGeometry,
+
+                                        direction: tr.direction,
+
+                                        experiment_start_time: experimentStartTimeCET,
+
+                                        vanishP: +tr.vanishP.toFixed(4),
+
+                                        errorFwd_px: 'TIMEOUT',
+
+                                        speed_px_s: +(speed_px_ms * 1000).toFixed(2),
+
+                                        speed_px_ms_actual: +speed_px_ms.toFixed(5),
+
+                                        startOffset_px: +randomStartOffsetPx.toFixed(2),
+
+                                        pathVisible: tr.pathVisibility,
+
+                                    });
+
+                                    handleError('Time expired. Please click "Continue" to restart.', resolve);
+
+                                }, RESPONSE_WINDOW_MS);
+
+
+
+                            }, FIXED_BLANK_MS); // Use the fixed 250ms RI
+
+
+
+                        } // end if (vanished)
+
+
+
+                        accumulatedTime -= FRAME_INTERVAL;
+
+                    } // end while loop
+
+
+
+                    // This block runs *after* the logic updates, to draw the frame
+
+                    if (!vanished) {
+
+                        clearCanvas();
+
+
+
+                        // Draw track ONLY IF the trial condition is 'visible'
+
+                        if (tr.pathVisibility === 'visible') {
+
+                            drawTrack(tr);
+
+                        }
+
+
+
+                        // Calculate current dot position based on *totalElapsed* time
+
+                        const distTravelled = speed_px_ms * totalElapsed + randomStartOffsetPx;
+
+
+
+                        if (distTravelled < totalPathLength) {
+
+                            const distFromStart = (tr.direction === 1) ? distTravelled : (totalPathLength - distTravelled);
+
+                            const p_norm = Math.max(0, Math.min(1, getPAtArcLength(tr, distFromStart)));
+
+
+
+                            const amp = (tr.pathGeometry === 'sinusoidal') ? pathWidth * SINE_AMPLITUDE : 0;
+
+                            const angle = (tr.pathGeometry === 'sinusoidal') ? (SINE_CYCLES * p_norm * 2 * Math.PI + (tr.phaseOffset || 0)) : 0;
+
+                            const currentPos = definition.getPoint(p_norm, amp, angle);
+
+
+
+                            ctx.fillStyle = '#000';
+
+                            ctx.beginPath();
+
+                            ctx.arc(currentPos.x, currentPos.y, dotR, 0, Math.PI * 2);
+
+                            ctx.fill();
+
+                        }
+
+                    }
+
+                }; // end frame function
+
+
+
+                animationFrameId = requestAnimationFrame(frame);
+
+
+
+            });
+
+        }
+
+
+
+        // --- Experiment Flow ---
+
+        async function startExperiment() {
+
+            const allPossibleTrials = buildTrials();
+
+
+
+            if (running) return;
+
+            running = true;
+
+            downloadBtn.disabled = true;
+
+            experimentStartTimeCET = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Malta' });
+
+
+
+            DURATION_SEC = parseFloat(tInput.value) || 3.7;
+
+            // BLANK_MS is explicitly set here for recording, but FIXED_BLANK_MS is used in the run loop.
+
+            const BLANK_MS = FIXED_BLANK_MS;
+
+            SINE_AMPLITUDE = parseFloat(ampInput.value) || 0.05;
+
+            SINE_CYCLES = parseFloat(cyclesInput.value) || 3;
+
+
+
+            // Build arc-length caches using current geometry
+
+            allPossibleTrials.forEach(tr => buildArcLengthCache(tr));
+
+
+
+            // Compute a single constant *base* speed (px/ms)
+
+            const totals = allPossibleTrials.map(tr => {
+
+                const key = `${tr.motionPath}-${tr.pathGeometry}-${(tr.phaseOffset || 0).toFixed(4)}`;
+
+                return arcLengthCache[key].total;
+
+            });
+
+            const minPathLen = Math.min(...totals);
+
+            // Ensure minPathLen is valid
+
+            if (!minPathLen || minPathLen <= 0) {
+
+                console.error("Could not calculate path length. Canvas may be 0x0.");
+
+                msg.textContent = "Error: Could not start experiment. Please refresh.";
+
+                return;
+
+            }
+
+
+
+            const estimatedFullDurationMs = (DURATION_SEC * 1000);
+
+            BASE_SPEED_PX_PER_MS = minPathLen / estimatedFullDurationMs;
+
+
+
+
+
+            dataRecords = [];
+
+            trials = allPossibleTrials;
+
+            const totalTrials = trials.length; // 80
+
+
+
+            // Original Instruction Text
+
+            ovlTitle.textContent = 'Instructions';
+
+            ovlBody.innerHTML = `Please complete this experiment in full-screen mode.
+
+    <br><br>Your task is to track the moving dot with your eyes. When it disappears, click on its last seen location.
+
+    <br><br><strong>Important:</strong> Please do NOT move your mouse</b> from the moment a trial begins until you are asked to click. Moving the mouse will restart the trial.
+
+    <br><br>The experiment consists of ${totalTrials} trials, divided into 4 blocks of 20 trials each. You can take a short break after each block.
+
+    <br><br>You may start by clicking the 'Continue' button.`;
+
+            overlay.style.display = 'flex';
+
+            await waitContinue();
+
+            overlay.style.display = 'none';
+
+
+
+            // freeze canvas size for the entire run (prevents resizing when FS is lost)
+
+            FREEZE_CANVAS_SIZE = true;
+
+            resizeCanvas(); // One last resize while frozen
+
+
+
+            let trialIndex = 0;
+
+            while (trialIndex < totalTrials) {
+
+                // while (trialIndex < 4) {
+
+                // Ensure current trial is not identical to the *previous* successful one
+
+                if (trialIndex > 0 && dataRecords.length > 0 && areTrialsIdentical(trials[trialIndex], dataRecords[dataRecords.length - 1])) {
+
+                    let swapIndex = -1;
+
+                    for (let j = trialIndex + 1; j < trials.length; j++) {
+
+                        if (!areTrialsIdentical(trials[j], dataRecords[dataRecords.length - 1])) {
+
+                            swapIndex = j;
+
+                            break;
+
+                        }
+
+                    }
+
+                    if (swapIndex !== -1) {
+
+                        [trials[trialIndex], trials[swapIndex]] = [trials[swapIndex], trials[trialIndex]];
+
+                    }
+
+                }
+
+
+
+
+
+                const tr = trials[trialIndex];
+
+                tr.idx = trialIndex + 1;
+
+
+
+                clearCanvas();
+
+                msg.textContent = `Trial ${tr.idx}/${totalTrials}`;
+
+                await delay(INTER_TRIAL_BLANK_MS);
+
+
+
+                document.body.style.cursor = 'none';
+
+
+
+                await delay(sampleDelay(PRE_STIMULUS_DELAY)); // 500-1000ms delay
+
+
+
+                const trialSuccessful = await runOneTrial(tr, totalTrials);
+
+
+
+                if (trialSuccessful === true) {
+
+                    trialIndex++; // Only advance to next trial if successful
+
+
+
+                    if (trialIndex > 0 && trialIndex < totalTrials && trialIndex % TRIALS_PER_BLOCK === 0) {
+
+                        if (dataRecords.length > 0) {
+
+                            const breakTimeCET = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Malta' });
+
+                            dataRecords[dataRecords.length - 1].break_started_at = breakTimeCET;
+
+                        }
+
+
+
+                        const blockNum = trialIndex / TRIALS_PER_BLOCK;
+
+                        const totalBlocks = Math.ceil(totalTrials / TRIALS_PER_BLOCK);
+
+
+
+                        clearCanvas();
+
+                        document.body.style.cursor = 'default';
+
+                        msg.innerHTML = `Block ${blockNum} of ${totalBlocks} complete. Please take a short break.`;
+
+
+
+                        nextTrialBtn.textContent = 'Continue';
+
+                        nextTrialBtn.style.display = 'block';
+
+
+
+                        await new Promise(resolve => {
+
+                            nextTrialBtn.addEventListener('click', resolve, { once: true });
+
+                        });
+
+
+
+                        nextTrialBtn.style.display = 'none';
+
+                        nextTrialBtn.textContent = 'Next Trial';
+
+                    }
+
+                } else {
+
+                    // --- Trial Failed (Mouse, Timeout, or FS Exit) ---
+
+                    if (fullscreenInterrupted) {
+
+                        msg.textContent = `Fullscreen was exited. Please click “Return to Fullscreen” to continue Trial ${tr.idx}/${totalTrials}.`;
+
+                        await waitForFullscreen();
+
+                        fullscreenInterrupted = false;
+
+                    }
+
+
+
+                    // Swap the failed trial with a future one
+
+                    const failedTrial = trials[trialIndex];
+
+                    let swapIndex = -1;
+
+
+
+                    // Prefer a future trial with a different condition
+
+                    for (let j = trialIndex + 1; j < trials.length; j++) {
+
+                        if (isDifferentCondition(failedTrial, trials[j])) {
+
+                            swapIndex = j;
+
+                            break;
+
+                        }
+
+                    }
+
+
+
+                    // If no different condition found ahead, just swap with the next one
+
+                    if (swapIndex === -1 && trialIndex < trials.length - 1) {
+
+                        swapIndex = trialIndex + 1;
+
+                    }
+
+
+
+                    if (swapIndex !== -1) {
+
+                        [trials[trialIndex], trials[swapIndex]] = [trials[swapIndex], trials[trialIndex]];
+
+                    } else {
+
+                        // This would only happen on the very last trial if it failed
+
+                    }
+
+                }
+
+            }
+
+
+
+            if (dataRecords.length > 0) {
+
+                const experimentEndTimeCET = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Malta' });
+
+                dataRecords[dataRecords.length - 1].experiment_end_time = experimentEndTimeCET;
+
+            }
+
+
+
+            downloadBtn.disabled = false;
+
+            // autoDownload();
+
+
+
+            ovlTitle.textContent = 'Experiment Complete!';
+
+            ovlBody.innerHTML = 'Thank you for your participation. Please click to finalise the experiment.';
+
+            continueBtn.textContent = 'Finalise';
+
+            overlay.style.display = 'flex';
+
+            continueBtn.addEventListener('click', () => {
+
+                if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
+
+
+
+                // mark as finalized so no other timeouts can change the UI text
+
+                EXPERIMENT_FINALIZED = true;
+
+
+
+                try { if (animationFrameId) cancelAnimationFrame(animationFrameId); } catch { }
+
+
+
+                // hide overlays/buttons, reset cursor, clear canvas, and set the final message
+
+                overlay.style.display = 'none';
+
+                nextTrialBtn.style.display = 'none';
+
+                fsExitOverlay.style.display = 'none';
+
+                document.body.style.cursor = 'default';
+
+                if (typeof clearCanvas === 'function') clearCanvas();
+
+                msg.textContent = 'Thank you!';
+
+                redirect();
+
+            }, { once: true });
+
+
+
+
+
+            // unfreeze canvas after experiment ends
+
+            FREEZE_CANVAS_SIZE = false;
+
+
+
+            running = false;
+
+        }
+
+
+
+        //IMT Stuff
+
+
+
+        function sendToServer(csvString) {
+
+
+
+            // This is not used. But if you want to run this on a server, you need to write as short PHP
+
+            // to take the data string and send it somewhere...
+
+
+
+            // var csvString;
+
+
+
+            //creating XMLhttpRequest object
+
+            var xhr;
+
+            if (window.XMLHttpRequest) { // Mozilla, Safari, ...
+
+                xhr = new XMLHttpRequest();
+
+            } else if (window.ActiveXObject) { // IE 8 and older
+
+                xhr = new ActiveXObject("Microsoft.XMLHTTP");
+
+            }
+
+
+
+            csvString += "\n"; // make sure of line break;
+
+
+
+            //  console.log(csvString);
+
+
+
+            //alert(data);
+
+            // Build the URL to connect to
+
+            var url = "save-userinfo.php";
+
+            //    var url = "http://localhost/save-userinfo.php";
+
+
+
+            // Open a connection to the server
+
+            xhr.open("POST", url, true);
+
+
+
+            // declaring that the data being sent is in XML format
+
+            xhr.setRequestHeader("Content-Type", "text/plain");
+
+
+
+            // Send the request
+
+            xhr.send(csvString);
+
+        }
+
+
+
+
+
+        function redirect() {
+
+
+
+            if (prolificSession) {
+
+                //  document.location.reload();
+
+                setTimeout(() => { window.location.href = "https://app.prolific.co/submissions/complete?cc=C9EJXIKN"; }, 1000);
+
+            } else {
+
+                //  document.location.reload();
+
+                setTimeout(() => { window.location.href = "https://www.um.edu.mt/maks/cogscience"; }, 1000);
+
+                // window.location.href = "https://www.um.edu.mt/maks/cogscience";
+
+                // window.location.replace("https://www.um.edu.mt/maks/cogscience");
+
+            }
+
+
+
+        }
+
+
+
+
+
+
+
+        // --- Data Handling ---
+
+        function convertToCSV(data, trialNum) {
+
+            if (!data || data.length === 0) return '';
+
+
+
+            const allKeysSet = new Set();
+
+            for (const row of data) {
+
+                Object.keys(row).forEach(k => allKeysSet.add(k));
+
+            }
+
+
+
+            const preferredOrder = [
+
+                'fileID', 'trial', 'motionPath', 'pathGeometry', 'direction', 'pathVisible',
+
+                'experiment_start_time',
+
+                'vanishP', 'vanishX_px', 'vanishY_px', 'clickX_px', 'clickY_px', 'snappedX_px', 'snappedY_px',
+
+                'errorFwd_px', 'errorOrth_px', 'errorTemp_ms',
+
+                'errorEuclidean_px', 'isOutlier',
+
+                'speed_px_s', 'speed_px_ms_actual', 'startOffset_px',
+
+                'response_timestamp'
+
+            ];
+
+            const allKeys = Array.from(allKeysSet);
+
+            const headers = [
+
+                ...preferredOrder.filter(k => allKeysSet.has(k)),
+
+                ...allKeys.filter(k => !preferredOrder.includes(k))
+
+            ];
+
+
+
+            var headerRow = headers.join(',');
+
+
+
+            const rows = data.map(row =>
+
+                headers.map(h => JSON.stringify(row[h] ?? '')).join(',')
+
+            );
+
+
+
+            //IMT only write headers on trial 1
+
+            if (trialNum == 1) {
+
+                headerRow = uniqueID + "," + headerRow;
+
+                return [headerRow, ...rows].join('\n');
+
+            } else {
+
+                return [...rows].join('\n');
+
+            }
+
+        }
+
+
+
+
+
+        function autoDownload() {
+
+            if (!dataRecords.length) return;
+
+            const csvContent = convertToCSV(dataRecords);
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+            a.download = `E1_RM_2x2_data_${timestamp}.csv`;
+
+            a.href = url;
+
+            document.body.appendChild(a);
+
+            a.click();
+
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(url);
+
+        }
+
+
+
+        downloadBtn.addEventListener('click', autoDownload);
+
+
+
+        resizeCanvas();
+
+    </script>
+
+</body>
+
+
+
+</html>

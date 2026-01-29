@@ -1,0 +1,190 @@
+---
+title: "Demographics Report"
+author: "Laura Engels"
+date: "2025-12-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+
+# GLOBAL SETTING: PREVENT EXECUTION
+# This ensures code displays on GitHub without requiring raw data files.
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+## Demographics Analysis: Experiments 1, 2, & 3
+
+```{r demo_table_full, echo=FALSE, message=FALSE, warning=FALSE}
+# Raw data is not included
+# Paths below demonstrate the pipeline structure.
+path_E1 <- "data/raw_data/experiment_1_horizontal.csv"
+path_E2 <- "data/raw_data/experiment_2_upward.csv"
+path_E3 <- "data/raw_data/experiment_3_downward.csv"
+
+# HELPER FUNCTIONS
+get_top_counts <- function(column, n=3) {
+  counts <- table(column)
+  sorted <- sort(counts, decreasing = TRUE)
+  top <- head(sorted, n)
+  labels <- names(top)
+  values <- as.numeric(top)
+  res <- paste0(labels, " (", values, ")")
+  if(length(res) < n) res <- c(res, rep(NA, n - length(res)))
+  return(res)
+}
+
+# MAIN REPORTING FUNCTIONS
+create_demo_table <- function(file_path, exp_title) {
+  if(!file.exists(file_path)) return(paste("Error: File not found -", file_path))
+  
+  df <- read_csv(file_path, show_col_types = FALSE) %>% filter(Status == "APPROVED")
+  
+  N_total <- nrow(df)
+  
+# Calculations
+  age_vals <- as.numeric(df$Age)
+  age_mean <- round(mean(age_vals, na.rm=T), 2)
+  age_sd   <- round(sd(age_vals, na.rm=T), 2)
+  age_min  <- min(age_vals, na.rm=T)
+  age_max  <- max(age_vals, na.rm=T)
+  
+  time_vals <- as.numeric(df$`Time taken`) / 60
+  time_str <- paste0(round(mean(time_vals, na.rm=T), 1), " min (SD=", round(sd(time_vals, na.rm=T), 1), ")")
+  dates <- as.Date(df$`Started at`)
+  date_range <- paste0(min(dates, na.rm=T), " to ", max(dates, na.rm=T))
+  
+  top_nat <- get_top_counts(df$Nationality, 3)
+  top_res <- get_top_counts(df$`Country of residence`, 3)
+  top_lang <- get_top_counts(df$Language, 3)
+  
+  s# Build Data Frame for Table
+  stats <- tibble(
+    Category = c("Logistics", "Logistics", "Sample Size", 
+                 "Age", "Age", 
+                 "Sex", "Sex", 
+                 "Handedness", 
+                 "Student Status", "Student Status", 
+                 "Employment", "Employment", "Employment", "Employment", 
+                 "Ethnicity", "Ethnicity", "Ethnicity", "Ethnicity", 
+                 "Nationality", "Nationality", "Nationality", 
+                 "Residence", "Residence", "Residence", 
+                 "Language", "Language", "Language"),
+    Variable = c("Data Collection Period", "Avg. Time Taken", "Total Participants (N)", 
+                 "Mean (SD)", "Range", 
+                 "Female", "Male", 
+                 "Right-handed", 
+                 "Yes", "No", 
+                 "Full-Time", "Part-Time", "Unemployed", "Other", 
+                 "White", "Black", "Asian", "Mixed/Other", 
+                 "1st Most Common", "2nd Most Common", "3rd Most Common", 
+                 "1st Most Common", "2nd Most Common", "3rd Most Common", 
+                 "1st Most Common", "2nd Most Common", "3rd Most Common"),
+    Value = c(date_range, time_str, as.character(N_total), 
+              paste0(age_mean, " (", age_sd, ")"), paste0(age_min, "–", age_max), 
+              as.character(sum(df$Sex == "Female")), as.character(sum(df$Sex == "Male")), 
+              paste0(sum(df$Handedness == "Right-handed"), " (", round(sum(df$Handedness == "Right-handed")/N_total*100,0), "%)"), 
+              as.character(sum(df$`Student status` == "Yes")), as.character(sum(df$`Student status` == "No")), 
+              as.character(sum(df$`Employment status` == "Full-Time")), as.character(sum(df$`Employment status` == "Part-Time")), 
+              as.character(sum(grepl("Unemployed", df$`Employment status`))), 
+              as.character(sum(!df$`Employment status` %in% c("Full-Time", "Part-Time") & !grepl("Unemployed", df$`Employment status`))), 
+              as.character(sum(df$`Ethnicity simplified` == "White")), as.character(sum(df$`Ethnicity simplified` == "Black")), 
+              as.character(sum(df$`Ethnicity simplified` == "Asian")), 
+              as.character(sum(!df$`Ethnicity simplified` %in% c("White", "Black", "Asian"))), 
+              top_nat[1], top_nat[2], top_nat[3], 
+              top_res[1], top_res[2], top_res[3], 
+              top_lang[1], top_lang[2], top_lang[3])
+  ) %>% filter(!is.na(Value))
+  
+  # Output Table
+  kbl(stats %>% select(Variable, Value), caption = paste("Demographics Table:", exp_title)) %>%
+    kable_classic(full_width = F, html_font = "Times New Roman") %>%
+    pack_rows("Study Logistics", 1, 2) %>% 
+    pack_rows("Sample Info", 3, 3) %>% 
+    pack_rows("Age", 4, 5) %>% 
+    pack_rows("Sex", 6, 7) %>% 
+    pack_rows("Handedness", 8, 8) %>% 
+    pack_rows("Student Status", 9, 10) %>% 
+    pack_rows("Employment", 11, 14) %>% 
+    pack_rows("Ethnicity", 15, 18) %>% 
+    pack_rows("Nationality", 19, 21) %>% 
+    pack_rows("Residence", 22, 24) %>% 
+    pack_rows("Language", 25, 27) %>%
+    print()
+}
+
+# --- Function B: Generate APA-Style Text Report ---
+create_text_report <- function(file_path, exp_title) {
+  if(!file.exists(file_path)) return()
+  
+  df <- read_csv(file_path, show_col_types = FALSE) %>% 
+    filter(Status == "APPROVED")
+  
+  # Basic Stats
+  N_total <- nrow(df)
+  ages <- as.numeric(df$Age)
+  mean_age <- round(mean(ages, na.rm = TRUE), 2)
+  sd_age   <- round(sd(ages, na.rm = TRUE), 2)
+  range_age <- paste(min(ages, na.rm=TRUE), "-", max(ages, na.rm=TRUE))
+  
+  n_female <- sum(df$Sex == "Female")
+  n_male <- sum(df$Sex == "Male")
+  n_right <- sum(df$Handedness == "Right-handed")
+  perc_right <- round((n_right / N_total) * 100, 1)
+  
+  # Time & Dates
+  time_sec <- as.numeric(df$`Time taken`)
+  mean_time_min <- round(mean(time_sec, na.rm=TRUE) / 60, 2)
+  sd_time_min   <- round(sd(time_sec, na.rm=TRUE) / 60, 2)
+  
+  start_dates <- as.Date(df$`Started at`)
+  date_range <- paste(min(start_dates, na.rm=TRUE), "to", max(start_dates, na.rm=TRUE))
+  
+  # Helper for text lists (Top 3)
+  nat_text <- get_top_counts_text(df$Nationality)
+  res_text <- get_top_counts_text(df$`Country of residence`)
+  birth_text <- get_top_counts_text(df$`Country of birth`)
+  lang_text <- get_top_counts_text(df$`Fluent languages`)
+  eth_text <- get_top_counts_text(df$`Ethnicity simplified`)
+  emp_text <- get_top_counts_text(df$`Employment status`)
+  
+  n_student <- sum(df$`Student status` == "Yes")
+  
+  # Construct Paragraph
+  cat(paste0("#### **Participants: ", exp_title, "**\n\n"))
+  
+  cat(paste0(
+    "Data collection took place from ", date_range, ". ",
+    "A total of ", N_total, " participants (", n_female, " female, ", n_male, " male) were recruited via Prolific Academic. ",
+    "The average time taken to complete the study was ", mean_time_min, " minutes (*SD* = ", sd_time_min, ").\n\n",
+    
+    "Participants ranged in age from ", range_age, " years (*M* = ", mean_age, ", *SD* = ", sd_age, "). ",
+    "All participants (", perc_right, "%) self-reported as right-handed and had normal or corrected-to-normal vision.\n\n",
+    
+    "**Demographic Background:**\n",
+    "The sample was diverse in terms of nationality, with the most common being: ", nat_text, ". ",
+    "Most participants currently resided in ", res_text, ", and were born in ", birth_text, ". ",
+    "The primary fluent languages reported were: ", lang_text, ".\n\n",
+    
+    "**Socio-Economic Status:**\n",
+    "Regarding employment, ", n_student, " participants were currently students. ",
+    "The most frequent employment statuses were: ", emp_text, ". ",
+    "The sample's ethnic composition primarily included: ", eth_text, "."
+  ))
+  cat("\n\n---\n\n") 
+}
+
+# EXPERIMENT 1
+create_demo_table(path_E1, "Experiment 1 (Horizontal)")
+create_text_report(path_E1, "Experiment 1 (Horizontal)")
+
+# EXPERIMENT 2
+create_demo_table(path_E2, "Experiment 2 (Upward)")
+create_text_report(path_E2, "Experiment 2 (Upward)")
+
+# EXPERIMENT 3
+create_demo_table(path_E3, "Experiment 3 (Downward)")
+create_text_report(path_E3, "Experiment 3 (Downward)")
+```
