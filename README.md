@@ -48,6 +48,13 @@ The analysis pipeline is organized into the following R Markdown documents:
 
 * **`Experiment Source Code`**: 
 The raw source code:** for the behavioral tasks (written in HTML/JS/CSS) is located in the `Experiment_Task` directory
+
+* **`Power_analysis/`**:
+  * **`APrioriAnalysis.R`**: The a priori power analysis script used to determine the target sample size. It calculates power curves for the Mixed ANOVA design based on a conservative effect size estimate (f = 0.33) derived from pilot data.
+
+* **`Validation_simulation/`** (Python):
+  * **`validation_check.py`**: Simulation script used to verify the arc-length parameterization algorithm. It confirms that the web-based animation maintained constant velocity along the sinusoidal path (independent of frame rate).
+  * **`requirements.txt`**: List of Python dependencies required to run the simulation.
 ---
 
 ## 🛠️ Technical Details
@@ -56,4 +63,4 @@ For examiners wishing to understand the computational environment, this analysis
 * **Language:** R (Version 2025.09.2+418)
 * **Key Libraries:** `tidyverse`, `lme4`, `lmerTest`, `ggplot2`, `afex`
 
----
+
