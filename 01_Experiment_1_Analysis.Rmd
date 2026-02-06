@@ -476,6 +476,7 @@ ggplot(means_2x2, aes(x = pathGeometry, y = mean_error, fill = pathVisible)) +
 ## Analysis A: Full Sample (Clean Trials)
 
 ```{r rm_anova_primary, echo=TRUE}
+# Use the same 'means_2x2' object created for the plot
 rm_anova_clean <- means_2x2 %>%
   mutate(participant_id = factor(participant_id))
 
@@ -519,7 +520,7 @@ if(length(dropped_ids) > 0) {
   print(dropped_ids)
 }
 
-# RUN RM-ANOVA (afex)
+# 5. RUN RM-ANOVA (afex)
 model_anova <- aov_ez(
   id = "participant_id",
   dv = "mean_error",
@@ -528,96 +529,88 @@ model_anova <- aov_ez(
   anova_table = list(es = "ges", correction = "none")
 )
 
-cat("\n--- PRIMARY ANOVA RESULTS (Type III) ---\n")
-print(model_anova)
+# Store table for appendix instead of printing it here
+appendix_list[["Primary_ANOVA"]] <- nice(model_anova, mse = TRUE)
 
+cat("\n--- Primary ANOVA Results ---\n")
+cat("Note: Full ANOVA tables with all non-significant effects are in the Appendix.\n")
+cat("Main Effect of Geometry: ", report_effect_text(model_anova, "pathGeometry"), "\n")
+cat("Main Effect of Visibility: ", report_effect_text(model_anova, "pathVisible"), "\n")
+cat("Interaction (Geo x Vis): ", report_effect_text(model_anova, "pathGeometry:pathVisible"), "\n")
 
-cat("\n--- CELL MEANS (for Reporting) ---\n")
+cat("\n--- Estimated Marginal Means & Tests Against Zero ---\n")
+# Tests if cell means are significantly different from 0 (Veridical)
 emm_cells <- emmeans(model_anova, ~ pathGeometry * pathVisible)
-print(summary(emm_cells, infer = TRUE, level = 0.95))
+print(summary(emm_cells, infer = c(TRUE, TRUE), level = 0.95))
 
-cat("\n--- SIMPLE EFFECTS (Visibility within Geometry) ---\n")
-emm_interaction <- emmeans(model_anova, ~ pathVisible | pathGeometry)
-simple_effects <- contrast(emm_interaction, 
-                           method = list("invisible − visible" = c(1, -1)),
-                           adjust = "holm")
-print(summary(simple_effects, infer = TRUE, level = 0.95))
+
+# SIMPLE EFFECTS PART A (Standard) 
+# Question: Does VISIBILITY matter for Linear? For Sinusoidal?
+cat("\n--- SIMPLE EFFECTS A: Visibility within Geometry ---\n")
+emm_A <- emmeans(model_anova, ~ pathVisible | pathGeometry)
+simple_effects_A <- contrast(emm_A, method = "pairwise", adjust = "holm")
+
+print(summary(simple_effects_A, infer = TRUE))
+appendix_list[["Simple_Effects"]] <- as.data.frame(summary(simple_effects_A, infer = TRUE))
+
+#  SIMPLE EFFECTS PART B
+# Question: Is Linear different from Sinusoidal when Invisible? When Visible?
+cat("\n--- SIMPLE EFFECTS B: Geometry within Visibility ---\n")
+emm_B <- emmeans(model_anova, ~ pathGeometry | pathVisible)
+simple_effects_B <- contrast(emm_B, method = "pairwise", adjust = "holm")
+
+print(summary(simple_effects_B, infer = TRUE))
+
+appendix_list[["Simple_Effects_Geo"]] <- as.data.frame(summary(simple_effects_B, infer = TRUE))
 ```
 
 # Extra primary analysis check: trial-level LMM
 
 ```{r trial_level_lme, echo=TRUE}
-# CONTRAST CODING
+# 1. CONTRAST CODING
 # Ensure factors are set
 df_analysis_A$pathGeometryC <- ifelse(df_analysis_A$pathGeometry == "sinusoidal", 0.5, -0.5)
 df_analysis_A$pathVisibleC  <- ifelse(df_analysis_A$pathVisible  == "visible",    0.5, -0.5)
 
-# SAFETY CHECK
-print("--- CODING CHECK: Geometry ---")
-print(xtabs(~pathGeometry + pathGeometryC, data = df_analysis_A))
-print("--- CODING CHECK: Visibility ---")
-print(xtabs(~pathVisible + pathVisibleC, data = df_analysis_A))
-
-# MAXIMAL MODEL
-# Formula: Error ~ Interaction + (1 + Interaction | Participant)
-#Optimizer: bobyqa
-
-print("Running Maximal LME")
-
+# 2. RUN LME (Uncorrelated Slopes)
+print("--- Running LME (Uncorrelated Random Slopes) ---")
 model_A_trial <- lmer(
   errorFwd_px_num ~ pathGeometryC * pathVisibleC +
-    (1 + pathGeometryC * pathVisibleC | participant_id),
+    (1 + pathGeometryC * pathVisibleC || participant_id),
   data = df_analysis_A,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# CONVERGENCE TROUBLESHOOTING
-# If the model above gives "Singular Fit" or fails to converge, run below
-
-#print("--- Running LME (Uncorrelated Random Slopes) ---")
-
-# FALLBACK 1: Remove Correlations (Double Bar ||)
-#model_A_trial <- lmer(
- # errorFwd_px_num ~ pathGeometryC * pathVisibleC +
-#    (1 + pathGeometryC * pathVisibleC || participant_id),
-#  data = df_analysis_A,
- # control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
-#)
- 
- cat("\n--- SINGULARITY CHECK ---\n")
+cat("\n--- SINGULARITY CHECK ---\n")
 print(isSingular(model_A_trial, tol = 1e-4))
-
-cat("\n--- CONVERGENCE MESSAGES ---\n")
-print(model_A_trial@optinfo$conv$lme4$messages)
-
-# 4. REPORTING (Betas & Significance)
-print("--- MODEL SUMMARY (Betas) ---")
-print(summary(model_A_trial))
 
 print("--- ANOVA TABLE (Kenward-Roger df) ---")
 print(anova(model_A_trial, ddf = "Kenward-Roger")) 
+print("--- MODEL SUMMARY (Betas) ---")
+print(summary(model_A_trial))
+
+lmm_anova_table <- anova(model_A_trial, ddf = "Kenward-Roger")
+appendix_list[["Primary_LMM_ANOVA"]] <- as.data.frame(lmm_anova_table)
+
+lmm_betas_primary <- summary(model_A_trial)$coefficients
+appendix_list[["LMM_Betas_Primary"]] <- as.data.frame(lmm_betas_primary)
+
+
+# ADDED: Visual Normality Check for LME
+cat("\n--- Visual Normality Check (LME Residuals) ---\n")
+qqnorm(resid(model_A_trial), main = "QQ Plot: LME Residuals"); qqline(resid(model_A_trial))
 
 print("--- Simple Effects (Pairwise) ---")
-# Specifying 'at' list because predictors are numeric
 emm_A <- emmeans(model_A_trial, ~ pathVisibleC | pathGeometryC,
                  at = list(pathGeometryC = c(-0.5, 0.5), pathVisibleC = c(-0.5, 0.5)))
+print(pairs(emm_A))
 
-
-print("--- Tests against Zero (Intercepts) ---")
+cat("\n--- Tests against Zero (Intercepts) ---\n")
+# This tests if the estimated means are significantly different from 0
 tests_against_zero <- test(emm_A, null = 0)
 print(kable(as.data.frame(tests_against_zero), digits = 3, caption = "T-tests against Target (0)"))
 
-# Visual Confirmation (Plot with Reference Line)
-# This plots the estimated means with their confidence intervals relative to 0
-plot(emm_A, comparisons = TRUE) + 
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") + 
-  labs(
-    title = "Estimated Marginal Means vs. Veridical Target", 
-    subtitle = "Red dashed line = 0 px (Perfect Accuracy). Bars = 95% CIs.",
-    x = "Forward Error (px)",
-    y = "Condition"
-  ) + 
-  theme_bw()
+appendix_list[["Tests_Against_Zero"]] <- as.data.frame(tests_against_zero)
 
 cat("\n--- DHARMa Residual Diagnostics (Robustness LME) ---\n")
 set.seed(123)
@@ -627,16 +620,16 @@ print(testUniformity(dharma_A))
 print(testDispersion(dharma_A))
 print(testOutliers(dharma_A))
 ```
-
 # SENSITIVITY CHECK: DATASET B (Global Outliers Removed)
 # Rationale: Ensure findings hold when global outliers are excluded.
+
 
 ```{r sensitivity_check_B, echo=TRUE}
 if(length(flagged_global) > 0) {
   
   cat("--- SENSITIVITY CHECK: Excluded", length(flagged_global), "Global Outliers ---\n")
   
-  # ANOVA SENSITIVITY
+  #  ANOVA SENSITIVITY
   rm_anova_data_B <- df_analysis_B %>%
     group_by(participant_id, pathGeometry, pathVisible) %>%
     summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop") %>%
@@ -662,8 +655,12 @@ if(length(flagged_global) > 0) {
     within = c("pathGeometry", "pathVisible"),
     anova_table = list(es = "ges", correction = "none")
   )
-  print("--- Sensitivity: RM-ANOVA Results (Dataset B) ---")
-  print(model_anova_B)
+  
+
+  cat("--- Sensitivity: RM-ANOVA Results (Dataset B) ---\n")
+  cat("Main Effect of Geometry: ", report_effect_text(model_anova_B, "pathGeometry"), "\n")
+  cat("Main Effect of Visibility: ", report_effect_text(model_anova_B, "pathVisible"), "\n")
+  cat("Interaction (Geo x Vis): ", report_effect_text(model_anova_B, "pathGeometry:pathVisible"), "\n")
   
   # LME ROBUSTNESS SENSITIVITY
   df_analysis_B$pathGeometryC <- ifelse(df_analysis_B$pathGeometry == "sinusoidal", 0.5, -0.5)
@@ -676,6 +673,8 @@ if(length(flagged_global) > 0) {
     control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
   )
   
+  appendix_list[["Sensitivity_ANOVA_B"]] <- nice(model_anova_B, mse = TRUE)
+
   print("--- Sensitivity: Trial-Level LME Results (Dataset B) ---")
   print(anova(model_B_trial, ddf = "Kenward-Roger"))
 
@@ -696,125 +695,47 @@ if(length(flagged_global) > 0) {
 }
 ```
 
-
 # SECOND-LEVEL ANALYSIS: STEP 1: Group Splits based on Linear Baseline
 
 ```{r step1info, echo=TRUE}
+# --- Step 1: Define Groups using LINEAR Baseline data ---
 linear_baseline <- df_analysis_A %>%
   filter(pathGeometry == "linear", pathVisible == "invisible") %>%
   group_by(participant_id) %>%
   summarise(
-    # Using the signed mean here to know if they went Forward or Backward
     linear_mean_signed = mean(errorFwd_px_num, na.rm = TRUE),
     .groups = "drop"
   )
 
-median_val <- median(linear_baseline$linear_mean_signed)
+median_val <- median(linear_baseline$linear_mean_signed, na.rm = TRUE)
 
+# Define BOTH groupings here
 ppt_groups <- linear_baseline %>%
   mutate(
-    # --- METHOD A: "ABSOLUTE SPLIT" (Criterion = 0) ---
-    # Defining groups based on absolute direction relative to the target (0).
-    Group_Absolute = case_when(
-      linear_mean_signed >= 0 ~ "Momentum (+)",
-      linear_mean_signed < 0  ~ "Repulsion (-)"
-    ),
-    
-    # --- METHOD B: "MEDIAN SPLIT" (Criterion = Median) ---
-    # Defining groups based on relative position to the group average.
-    Group_Median = case_when(
-      linear_mean_signed >= median_val ~ "High Shift (>Med)",
-      linear_mean_signed < median_val  ~ "Low Shift (<Med)"
-    )
+    Group_Absolute = ifelse(linear_mean_signed >= 0, "Momentum (+)", "Repulsion (-)"),
+    Group_Median   = ifelse(linear_mean_signed >= median_val, "High Shift (>Med)", "Low Shift (<Med)")
   )
 
-# Check N per group
-print("--- Method A: Absolute Split (Zero Cutoff) ---")
+cat(paste0("--- Median Split (Median = ", round(median_val, 2), "px) ---\n"))
+print(table(ppt_groups$Group_Median))
+cat("\n--- Absolute Split (0 cutoff) ---\n")
 print(table(ppt_groups$Group_Absolute))
 
-print(paste0("--- Method B: Median Split (Median = ", round(median_val, 2), "px) ---"))
-print(table(ppt_groups$Group_Median))
-
-# Analyzing how these groups performed on the Sinusoidal trials
-df_grouped <- df_analysis_A %>%
+# Full trial-level dataset with group labels
+df_grouped_full <- df_analysis_A %>%
   left_join(ppt_groups %>% select(participant_id, Group_Absolute, Group_Median), by = "participant_id") %>%
-  filter(pathGeometry == "sinusoidal")
+  filter(!is.na(Group_Median))
 
-# VISUALIZATION (Comparison)
+# Sinusoidal-only dataset for the comparison plots/tests
+df_grouped <- df_grouped_full %>% filter(pathGeometry == "sinusoidal")
 
-p_abs <- ggplot(df_grouped, aes(x = Group_Absolute, y = errorFwd_px_num, fill = Group_Absolute)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
-  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
-  scale_fill_manual(values = c("Momentum (+)" = "white", "Repulsion (-)" = "white")) +
-  labs(
-    title = "Method A: Absolute Split",
-    subtitle = "Groups defined by Positive/Negative Linear Bias",
-    y = "Sinusoidal Error (px)", x = NULL
-  ) +
-  theme_bw() + theme(legend.position = "none")
-
-p_med <- ggplot(df_grouped, aes(x = Group_Median, y = errorFwd_px_num, fill = Group_Median)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
-  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
-  scale_fill_manual(values = c("High Shift (>Med)" = "white", "Low Shift (<Med)" = "white")) +
-  labs(
-    title = "Method B: Median Split",
-    subtitle = "Groups defined by Linear Median Split",
-    y = NULL, x = NULL
-  ) +
-  theme_bw() + theme(legend.position = "none")
-
-gridExtra::grid.arrange(p_abs, p_med, ncol = 2)
+# Contrast coding for moderation model
+df_grouped_full$GroupC <- ifelse(df_grouped_full$Group_Median == "High Shift (>Med)", 0.5, -0.5)
+df_grouped_full$pathGeometryC <- ifelse(df_grouped_full$pathGeometry == "sinusoidal", 0.5, -0.5)
+df_grouped_full$pathVisibleC  <- ifelse(df_grouped_full$pathVisible  == "visible",    0.5, -0.5)
 
 
-# T-TESTS (Participant Level)
-# Summarize sinusoidal data to participant level
-sinu_summary <- df_grouped %>%
-  group_by(participant_id, Group_Absolute, Group_Median) %>%
-  summarise(sinu_mean = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
-
-print("--- T-Test: Absolute Split ---")
-print(t.test(sinu_mean ~ Group_Absolute, data = sinu_summary))
-
-print("--- T-Test: Median Split ---")
-print(t.test(sinu_mean ~ Group_Median, data = sinu_summary))
-
-
-# TESTS AGAINST ZERO 
-# Goal: Test if each group is significantly different from 0 (One-sample t-test)
-# Correction: Bonferroni for 6 tests (3 Expts x 2 Groups) -> 0.05 / 6 = 0.0083
-
-# High Shift Group (> Median)
-# Subset: Take 'sinu_summary', filter for High Shift, pull the 'sinu_mean' column
-data_high <- subset(sinu_summary, Group_Median == "High Shift (>Med)")$sinu_mean
-t_high <- t.test(data_high, mu = 0)
-
-print("--- Test Against 0: High Shift Group ---")
-print(t_high)
-
-# Low Shift Group (< Median)
-# Subset: Take 'sinu_summary', filter for Low Shift, pull the 'sinu_mean' column
-data_low <- subset(sinu_summary, Group_Median == "Low Shift (<Med)")$sinu_mean
-t_low <- t.test(data_low, mu = 0)
-
-print("--- Test Against 0: Low Shift Group ---")
-print(t_low)
-
-# Significance Check
-alpha_bonferroni <- 0.05 / 6
-
-cat("\n--- Bonferroni Correction Check (Alpha =", round(alpha_bonferroni, 5), ") ---\n")
-cat("Is High Shift significantly > 0?  ", t_high$p.value < alpha_bonferroni, "\n")
-cat("Is Low Shift significantly < 0?   ", t_low$p.value < alpha_bonferroni, "\n")
-```
-
-# STEP 2: REPEAT MAIN ANALYSES BY GROUP  (USING MEDIAN SPLIT)
-## "Do path manipulations have different effects for these two participant types?"
-
-```{r repat, echo=TRUE}
-# 1. PREPARE DATA & CONTRASTS
+# PREPARE DATA & CONTRASTS
 df_grouped_full <- df_analysis_A %>%
   left_join(ppt_groups %>% select(participant_id, Group_Median), by = "participant_id") %>%
   filter(!is.na(Group_Median))
@@ -822,7 +743,7 @@ df_grouped_full <- df_analysis_A %>%
 # Manual Contrast Coding for Group
 df_grouped_full$GroupC <- ifelse(df_grouped_full$Group_Median == "Low Shift (<Med)", 0.5, -0.5)
 
-# 2. VISUALIZATION: Main Results split by Group
+# VISUALIZATION: Main Results split by Group
 means_grouped <- df_grouped_full %>%
   group_by(participant_id, Group_Median, pathGeometry, pathVisible) %>%
   summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = 'drop')
@@ -871,72 +792,315 @@ ggplot(means_grouped, aes(x = pathGeometry, y = mean_error, fill = pathVisible))
     x = "Path Geometry"
   ) +
   
-  # 7. APA 7 THEME + SPACING + GRIDS
   theme_classic(base_size = 14) +
   theme(
-    # --- TIGHTER SPACING ---
     aspect.ratio = 2.0,
     
-    # --- FAINT GRID LINES RESTORED ---
     # Horizontal only (light grey) to help read the Y-axis values
     panel.grid.major.y = element_line(color = "grey92", size = 0.3),
     panel.grid.major.x = element_blank(),
     panel.grid.minor   = element_blank(),
     
-    # Clean Headers (No Grey Boxes)
     strip.background = element_blank(),
     strip.text = element_text(face = "bold", size = 12),
     
-    # Elegant Borders
     panel.border = element_rect(color = "black", fill = NA, size = 0.5),
     axis.line = element_blank(), 
     
-    # --- LEGEND CENTERED ---
     legend.position = "right",
     legend.justification = "center",
     legend.title = element_text(face = "bold")
   )
 
-# 3. STATISTICAL MODEL
+#  Moderation model: Geo x Vis x Group 
 model_group_interaction <- lmer(
-  errorFwd_px_num ~ pathGeometryC * pathVisibleC * GroupC + 
-  (1 + pathGeometryC * pathVisibleC || participant_id), 
+  errorFwd_px_num ~ pathGeometryC * pathVisibleC * GroupC +
+    (1 + pathGeometryC * pathVisibleC || participant_id),
   data = df_grouped_full,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
 
-# 4. REPORTING
+print(isSingular(model_group_interaction, tol = 1e-4))
+
 print("--- Model Summary (Betas) ---")
 print(summary(model_group_interaction))
+
+lmm_betas_group <- summary(model_group_interaction)$coefficients
+appendix_list[["LMM_Betas_Group"]] <- as.data.frame(lmm_betas_group)
 
 print("--- ANOVA Table (Kenward-Roger) ---")
 print(anova(model_group_interaction, ddf = "Kenward-Roger"))
 
-# 5. FOLLOW-UP CONTRASTS
 my_levels <- list(
-  pathGeometryC = c(-0.5, 0.5), 
+  pathGeometryC = c(-0.5, 0.5),
   pathVisibleC  = c(-0.5, 0.5),
   GroupC        = c(-0.5, 0.5)
 )
 
-print("--- Simple Effects: Geometry Effect split by Group ---")
-emm_interaction <- emmeans(model_group_interaction, ~ pathGeometryC | GroupC, at = my_levels)
-print(pairs(emm_interaction))
-```
+emm_3way <- emmeans(model_group_interaction, ~ pathGeometryC * pathVisibleC | GroupC, at = my_levels)
+int_by_group <- contrast(emm_3way, interaction = "pairwise", by = "GroupC", adjust = "holm")
+print(int_by_group)
+
+group_diff <- contrast(int_by_group, method = "revpairwise", by = NULL, adjust = "none")
+print(group_diff)
+
+# Comparison plots (Sinusoidal only) 
+p_abs <- ggplot(df_grouped, aes(x = Group_Absolute, y = errorFwd_px_num, fill = Group_Absolute)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
+  labs(title = "Method A: Absolute Split", subtitle = "Groups defined by +/- Linear baseline", y = "Sinusoidal Error (px)", x = NULL) +
+  theme_bw() + theme(legend.position = "none")
+
+p_med <- ggplot(df_grouped, aes(x = Group_Median, y = errorFwd_px_num, fill = Group_Median)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
+  labs(title = "Method B: Median Split", subtitle = "Groups defined by Linear median", y = NULL, x = NULL) +
+  theme_bw() + theme(legend.position = "none")
+
+gridExtra::grid.arrange(p_abs, p_med, ncol = 2)
+
+# Sinusoidal participant-level t-tests 
+sinu_summary <- df_grouped %>%
+  group_by(participant_id, Group_Absolute, Group_Median) %>%
+  summarise(sinu_mean = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
+
+print(t.test(sinu_mean ~ Group_Absolute, data = sinu_summary))
+print(t.test(sinu_mean ~ Group_Median, data = sinu_summary))
+
+data_high <- subset(sinu_summary, Group_Median == "High Shift (>Med)")$sinu_mean
+data_low  <- subset(sinu_summary, Group_Median == "Low Shift (<Med)")$sinu_mean
+print(t.test(data_high, mu = 0))
+print(t.test(data_low,  mu = 0))
 ```
 
-# Secondary Analysis Extra Sanity Check: Mixed ANOVA
+```{r suse, echo=TRUE}
+# Step 1: Define Groups using LINEAR Baseline data 
+linear_baseline <- df_analysis_A %>%
+  filter(pathGeometry == "linear", pathVisible == "invisible") %>%
+  group_by(participant_id) %>%
+  summarise(
+    # Using the signed mean here to know if they went Forward or Backward
+    linear_mean_signed = mean(errorFwd_px_num, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+median_val <- median(linear_baseline$linear_mean_signed)
+
+# Define BOTH Group Variables 
+ppt_groups <- linear_baseline %>%
+  mutate(
+    # Method A: Absolute Split (0)
+    Group_Absolute = ifelse(linear_mean_signed >= 0, "Momentum (+)", "Repulsion (-)"),
+    
+    # Method B: Median Split
+    Group_Median = case_when(
+      linear_mean_signed >= median_val ~ "High Shift (>Med)",
+      linear_mean_signed < median_val  ~ "Low Shift (<Med)"
+    )
+  )
+
+print("--- Method A: Absolute Split (Zero Cutoff) ---")
+print(table(ppt_groups$Group_Absolute))
+
+print(paste0("--- Method B: Median Split (Median = ", round(median_val, 2), "px) ---"))
+print(table(ppt_groups$Group_Median))
+
+# --- FIX: Define df_grouped for Initial Plots ---
+df_grouped <- df_analysis_A %>%
+  left_join(ppt_groups %>% select(participant_id, Group_Absolute, Group_Median), by = "participant_id") %>%
+  filter(pathGeometry == "sinusoidal")
+
+# VISUALIZATION (Comparison)
+p_abs <- ggplot(df_grouped, aes(x = Group_Absolute, y = errorFwd_px_num, fill = Group_Absolute)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
+  scale_fill_manual(values = c("Momentum (+)" = "white", "Repulsion (-)" = "white")) +
+  labs(
+    title = "Method A: Absolute Split",
+    subtitle = "Groups defined by Positive/Negative Linear Bias",
+    y = "Sinusoidal Error (px)", x = NULL
+  ) +
+  theme_bw() + theme(legend.position = "none")
+
+p_med <- ggplot(df_grouped, aes(x = Group_Median, y = errorFwd_px_num, fill = Group_Median)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
+  scale_fill_manual(values = c("High Shift (>Med)" = "white", "Low Shift (<Med)" = "white")) +
+  labs(
+    title = "Method B: Median Split",
+    subtitle = "Groups defined by Linear Median Split",
+    y = NULL, x = NULL
+  ) +
+  theme_bw() + theme(legend.position = "none")
+
+gridExtra::grid.arrange(p_abs, p_med, ncol = 2)
+
+# T-TESTS (Participant Level)
+# Summarize sinusoidal data to participant level
+sinu_summary <- df_grouped %>%
+  group_by(participant_id, Group_Absolute, Group_Median) %>%
+  summarise(sinu_mean = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
+
+print("--- T-Test: Absolute Split ---")
+print(t.test(sinu_mean ~ Group_Absolute, data = sinu_summary))
+
+print("--- T-Test: Median Split ---")
+print(t.test(sinu_mean ~ Group_Median, data = sinu_summary))
+
+# TESTS AGAINST ZERO
+
+# 1. High Shift Group (> Median)
+data_high <- subset(sinu_summary, Group_Median == "High Shift (>Med)")$sinu_mean
+t_high <- t.test(data_high, mu = 0)
+print("--- Test Against 0: High Shift Group ---")
+print(t_high)
+
+# 2. Low Shift Group (< Median)
+data_low <- subset(sinu_summary, Group_Median == "Low Shift (<Med)")$sinu_mean
+t_low <- t.test(data_low, mu = 0)
+print("--- Test Against 0: Low Shift Group ---")
+print(t_low)
+```
+
+
+## SECONDARY (EXPLORATORY): Continuous baseline-shift moderation
+# Method: Continuous moderation model on FULL 2x2 data; Baseline computed from Linear-Invisible trials.
+
+```{r secondary_analysis_full, echo=TRUE}
+# 1. CALCULATE CONTINUOUS BASELINE (PREDICTOR)
+baseline_shift <- df_analysis_A %>%
+  filter(pathGeometry == "linear", pathVisible == "invisible") %>%
+  group_by(participant_id) %>%
+  summarise(
+    shift_linear_invis = mean(errorFwd_px_num, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    shift_z = as.numeric(scale(shift_linear_invis))
+  )
+
+# 2. MERGE INTO FULL DATASET
+df_full_mod <- df_analysis_A %>%
+  left_join(baseline_shift, by = "participant_id")
+
+# Ensure contrasts are numeric
+df_full_mod$pathGeometryC <- ifelse(df_full_mod$pathGeometry == "sinusoidal", 0.5, -0.5)
+df_full_mod$pathVisibleC  <- ifelse(df_full_mod$pathVisible  == "visible",    0.5, -0.5)
+
+
+cat("\n--- SINGULARITY CHECK ---\n")
+
+# 3. RUN FULL FACTORIAL INTERACTION MODEL
+model_full_mod <- lmer(
+  errorFwd_px_num ~ pathGeometryC * pathVisibleC * shift_z +
+    (1 + pathGeometryC * pathVisibleC || participant_id),
+  data = df_full_mod,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+
+print(isSingular(model_full_mod, tol = 1e-4))
+
+cat("\n--- Secondary LME: Full Factorial Moderation (Geo x Vis x Shift) ---\n")
+print(anova(model_full_mod, ddf = "Kenward-Roger"))
+print(summary(model_full_mod))
+
+# 4. SIMPLE SLOPES PROBE (The "So What?" Analysis)
+emm_full <- emmeans(
+  model_full_mod, ~ pathVisibleC * pathGeometryC | shift_z,
+  at = list(pathGeometryC = c(-0.5, 0.5), pathVisibleC = c(-0.5, 0.5), shift_z = c(-1, 0, 1))
+)
+
+cat("\n--- Interaction Pattern at -1SD, Mean, +1SD Baseline Shift ---\n")
+print(contrast(emm_full, interaction = "pairwise", adjust="holm"))
+
+# --- SLOPE OF THE INTERACTION ---
+cat("\n--- Slope of the Geometry x Visibility interaction vs Baseline Shift ---\n")
+model_coefs <- summary(model_full_mod)$coefficients
+# Regex to find the 3-way interaction term in any order
+target_row <- grep("shift_z:.*pathGeometryC:.*pathVisibleC|pathGeometryC:.*pathVisibleC:.*shift_z|pathGeometryC:.*shift_z:.*pathVisibleC", 
+                   rownames(model_coefs), value = TRUE)
+
+if(length(target_row) == 1) {
+  print(model_coefs[target_row, ])
+  cat("\nInterpretation:\n")
+  est <- model_coefs[target_row, "Estimate"]
+  if(est > 0) {
+    cat("Positive estimate: As Baseline Shift increases, the Geometry x Visibility interaction becomes larger (more positive).\n")
+  } else {
+    cat("Negative estimate: As Baseline Shift increases, the Geometry x Visibility interaction becomes smaller (more negative).\n")
+  }
+} else {
+  cat("Warning: Could not uniquely identify 3-way term.\n")
+}
+
+# PART C: TRANSPARENCY CHECK (Contrast-Score Regression) 
+# Rationale: descriptive participant-level cross-check of the GeometryxVisibility interaction.
+# Not used for inference (primary inference comes from the LMM).
+
+# 1. Calculate the "Interaction Score" per participant
+contrast_scores <- df_analysis_A %>%
+  group_by(participant_id, pathGeometry, pathVisible) %>%
+  summarise(mean_error = mean(errorFwd_px_num, na.rm=TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = c(pathGeometry, pathVisible), values_from = mean_error) %>%
+  mutate(
+    # Sign convention: vis_effect_* = (Visible - Invisible). Negative = visibility reduces forward error.
+    # ALIGN SIGNS WITH MODEL: Use (Visible - Invisible) to match LMM coefficients
+    
+    vis_effect_linear = linear_visible - linear_invisible,
+    vis_effect_sine   = sinusoidal_visible - sinusoidal_invisible,
+    
+    # Interaction = Does Vis effect differ between Sine and Linear?
+    geo_vis_interaction_score = vis_effect_sine - vis_effect_linear,
+    
+    geo_effect_score = (linear_invisible + linear_visible)/2 - (sinusoidal_invisible + sinusoidal_visible)/2
+  ) %>%
+  left_join(baseline_shift, by = "participant_id")
+
+# 2. Run Simple Linear Regressions
+lm_check_inter <- lm(geo_vis_interaction_score ~ shift_z, data = contrast_scores)
+lm_check_geo   <- lm(geo_effect_score ~ shift_z, data = contrast_scores)
+
+cat("\n--- TRANSPARENCY CHECK: Contrast-Score Regression ---\n")
+cat("Does Baseline Shift predict the size of the Geometry Effect (Lin - Sin)?\n")
+print(summary(lm_check_geo)$coefficients)
+
+cat("\nDoes Baseline Shift predict the size of the Geometry x Visibility Interaction?\n")
+print(summary(lm_check_inter)$coefficients)
+
+# 3. Correlation Plot
+p_check <- ggplot(contrast_scores, aes(x = shift_linear_invis, y = geo_vis_interaction_score)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", fill = "lightblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  labs(
+    title = "Transparency Check: Geometry x Visibility interaction vs Baseline",
+    subtitle = "Slope indicates how Baseline predicts the magnitude of the Interaction",
+    x = "Baseline Shift (px)", 
+    y = "Magnitude of Interaction (px)"
+  ) +
+  theme_bw()
+
+print(p_check)
+```
 
 ```{r sanity_check_anova_secondary, echo=TRUE}
+# SANITY CHECK: SECONDARY MIXED ANOVA
+# Rationale: Confirm that the Group x Geometry x Visibility interaction 
+# holds up under standard OLS assumptions (to rule out LME artifacts).
 
-# Rationale: Confirm that the Group x Geometry x Visibility interaction holds up under standard OLS assumptions (to rule out LME artifacts).
-
+# 1. PREPARE DATA
+# We need the aggregated means from the grouped dataset
 # Factors: Group (Between), Geometry (Within), Visibility (Within)
 mixed_anova_data <- df_grouped_full %>%
   group_by(participant_id, Group_Median, pathGeometry, pathVisible) %>%
   summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
 
-# need complete 2x2 data for every participant
+# 2. CHECK FOR BALANCE
+# We need complete 2x2 data for every participant
 completeness_check_group <- mixed_anova_data %>%
   count(participant_id) %>%
   mutate(is_complete = n == 4)
@@ -954,37 +1118,47 @@ if(length(dropped_ids_group) > 0) {
   cat("Status: Balanced Dataset for Mixed ANOVA.\n")
 }
 
-# Formula: Error ~ Between * Within + Error(Subject/Within)
+# 3. RUN MIXED ANOVA (Switched to aov_ez to capture MSE)
 cat("\n--- Running Standard Mixed ANOVA (Group x Geo x Vis) ---\n")
 
-mixed_model <- aov(
-  mean_error ~ Group_Median * pathGeometry * pathVisible + 
-  Error(participant_id / (pathGeometry * pathVisible)), 
-  data = mixed_anova_clean
+mixed_model_sanity <- aov_ez(
+  id = "participant_id",
+  dv = "mean_error",
+  data = mixed_anova_clean,
+  between = "Group_Median", # Important: Between-subjects factor
+  within = c("pathGeometry", "pathVisible"),
+  anova_table = list(es = "ges", correction = "none")
 )
 
+# SAVE FOR APPENDIX
+appendix_list[["Sanity_Mixed_ANOVA"]] <- nice(mixed_model_sanity, mse = TRUE)
 
-print(summary(mixed_model))
+# 4. REPORT
+# We specifically want to see the 3-way interaction here
+cat("Group x Geo x Vis Interaction: ", report_effect_text(mixed_model_sanity, "Group_Median:pathGeometry:pathVisible"), "\n")
 
+# Print full results briefly for context
+print(mixed_model_sanity)
 cat("\n--- COMPARISON GUIDE ---\n")
 cat("Look for the 3-way interaction: Group_Median:pathGeometry:pathVisible\n")
 cat("Does the p-value match the LME conclusion?\n")
 ```
 
 # SECONDARY ANALYSIS: MIXED ANCOVA (SPLIT-HALF VALIDATED)
-# To examine if individual differences in baseline shift moderate 
+# Rationale: To examine if individual differences in baseline shift moderate 
 # the effects of Geometry and Visibility.
 # Method: Split-Half Independence to prevent circularity.
 #   - COVARIATE (Baseline Shift) is calculated from ODD trials of Linear-Invisible.
 #   - DV (Mean Error) is calculated from the REMAINING trials (Even Linear-Inv + All others).
 
 ```{r secondary_ancova_splithalf, echo=TRUE}
-# ETUP: MARK ODD/EVEN TRIALS 
+# 1. SETUP: MARK ODD/EVEN TRIALS 
+# We ensure the trial column is numeric for modulo operation
 df_split_prep <- df_analysis_A %>%
   mutate(is_odd_trial = (trial %% 2) != 0)
 
-# CALCULATE INDEPENDENT COVARIATE (Predictor)
-# ONLY the ODD trials of the Linear-Invisible condition
+# CALCULATE INDEPENDENT COVARIATE (Predictor) 
+# We use ONLY the ODD trials of the Linear-Invisible condition
 baseline_shift_indep <- df_split_prep %>%
   filter(pathGeometry == "linear", pathVisible == "invisible", is_odd_trial == TRUE) %>%
   group_by(participant_id) %>%
@@ -993,15 +1167,16 @@ baseline_shift_indep <- df_split_prep %>%
     .groups = "drop"
   ) %>%
   mutate(
-    # Z-score for interprettability in the interaction model
+    # Z-score for interpretability in the interaction model
     shift_z = as.numeric(scale(shift_linear_invis_odd))
   )
 
 cat("\n--- Independent Covariate Summary (ODD Trials Only) ---\n")
 print(summary(baseline_shift_indep$shift_linear_invis_odd))
 
+#  PREPARE ANALYSIS DATA (Outcome)
 # REMOVE the specific trials used for the covariate to break circularity.
-# keep: Even Linear-Invisible trials AND All trials from other conditions.
+# Keep: Even Linear-Invisible trials AND All trials from other conditions.
 df_ancova_trials <- df_split_prep %>%
   filter(!(pathGeometry == "linear" & pathVisible == "invisible" & is_odd_trial == TRUE))
 
@@ -1018,7 +1193,7 @@ df_ancova_valid$pathVisibleC  <- ifelse(df_ancova_valid$pathVisible  == "visible
 
 # RUN MIXED ANCOVA (LME on Cell Means) 
 # Formula: Error ~ Geometry * Visibility * Baseline_Shift + (1 | Participant)
-# Note: With cell means, only fit random intercepts.
+# Note: With cell means, we only fit random intercepts.
 model_ancova_valid <- lmer(
   mean_error ~ pathGeometryC * pathVisibleC * shift_z + (1 | participant_id),
   data = df_ancova_valid,
@@ -1026,14 +1201,20 @@ model_ancova_valid <- lmer(
 )
 
 cat("\n--- Secondary Analysis: Mixed ANCOVA Results (Split-Half Validated) ---\n")
-# ANOVA table with Kenward-Roger correction
-print(anova(model_ancova_valid, ddf = "Kenward-Roger"))
+ancova_table <- anova(model_ancova_valid, ddf = "Kenward-Roger")
+
+print(ancova_table)
+
+appendix_list[["Continuous_ANCOVA"]] <- as.data.frame(ancova_table)
 
 cat("\n--- Model Summary (Betas) ---\n")
 print(summary(model_ancova_valid))
 
+lmm_betas_ancova <- summary(model_ancova_valid)$coefficients
+appendix_list[["LMM_Betas_Continuous"]] <- as.data.frame(lmm_betas_ancova)
+
 # SIMPLE SLOPES PROBE (Decomposing the Interaction) 
-# heck the Geometry x Visibility interaction at Low (-1SD), Mean, and High (+1SD) Shift
+# Check the Geometry x Visibility interaction at Low (-1SD), Mean, and High (+1SD) Shift
 emm_ancova_valid <- emmeans(
   model_ancova_valid, ~ pathVisibleC * pathGeometryC | shift_z,
   at = list(pathGeometryC = c(-0.5, 0.5), pathVisibleC = c(-0.5, 0.5), shift_z = c(-1, 0, 1))
@@ -1041,6 +1222,9 @@ emm_ancova_valid <- emmeans(
 
 cat("\n--- Interaction Pattern at -1SD, Mean, +1SD Baseline Shift ---\n")
 print(contrast(emm_ancova_valid, interaction = "pairwise", adjust="holm"))
+
+probes_output <- contrast(emm_ancova_valid, interaction = "pairwise", adjust="holm")
+appendix_list[["Continuous_Probes"]] <- as.data.frame(probes_output)
 
 # DIAGNOSTICS (DHARMa) 
 cat("\n--- DHARMa Residual Diagnostics (Split-Half Model) ---\n")
@@ -1050,7 +1234,7 @@ plot(dharma_ancova_v)
 print(testUniformity(dharma_ancova_v))
 print(testOutliers(dharma_ancova_v))
 
-# VISUALIZATION (Descriptive Plot)
+# VISUALIZATION (Descriptive Plot) 
 # Note: The statistical test above is continuous. This plot uses a median split
 # purely for visual clarity to show the reader the pattern.
 median_shift <- median(baseline_shift_indep$shift_linear_invis_odd, na.rm = TRUE)
@@ -1126,7 +1310,7 @@ ggplot(df_ancova_valid, aes(x = shift_linear_invis_odd, y = mean_error, color = 
 ```
 
 
-#  SAVE FINAL DATA FOR CROSS-EXPERIMENT COMPARISON 
+# --- SAVE FINAL DATA FOR CROSS-EXPERIMENT COMPARISON ---
 ```{r save, echo=TRUE}
 if(!exists("baseline_shift")) {
   baseline_shift <- df_analysis_A %>%
@@ -1140,11 +1324,142 @@ df_for_mega <- df_analysis_A %>%
   left_join(baseline_shift %>% select(participant_id, shift_linear_invis, shift_z), by = "participant_id") %>%
   mutate(experiment = "E1_horizontal")
 
-# Generic
-output_path <- "/Users/E1_Processed_Data.csv"
+output_path <- "/Users/loras/Desktop/Data_E1_Set1/NEW_E1_Processed_Data.csv"
 write_csv(df_for_mega, output_path)
 
 cat("E1 Processed Data Saved (includes continuous 'shift_z').\n")
+```
+
+# Appendices: Full Statistical Tables
+
+```{r appendix_tables, echo=TRUE, results='asis'}
+print_apa_table <- function(df, table_num, title, note) {
+  
+  # Clean up column names standard in lmerTest output
+  if("Pr(>|t|)" %in% names(df)) df <- df %>% rename(p = `Pr(>|t|)`)
+  if("t value" %in% names(df)) df <- df %>% rename(t = `t value`)
+  if("Std. Error" %in% names(df)) df <- df %>% rename(SE = `Std. Error`)
+  if("Pr(>F)" %in% names(df)) df <- df %>% rename(p = `Pr(>F)`)
+  
+  df <- df %>% mutate(across(where(is.numeric), ~ round(., 3)))
+  
+  # Format p-values specifically
+  if("p" %in% names(df)) {
+    df$p <- ifelse(as.numeric(df$p) < .001, "< .001", 
+                   sub("^(-?)0.", "\\1.", sprintf("%.3f", as.numeric(df$p))))
+  }
+
+  if(!is.null(row.names(df)) && row.names(df)[1] != "1") {
+    df <- tibble::rownames_to_column(df, "Predictor")
+  }
+
+  # Define Alignment: Left for text, Center for numbers
+  n_cols <- ncol(df)
+  align_vec <- c("l", rep("c", n_cols - 1))
+  
+  # Print Header
+  cat(paste0("\n\n**Table ", table_num, "**\n\n"))
+  cat(paste0("*", title, "*\n\n"))
+  
+  # Print Table
+  print(knitr::kable(df, 
+                     format = "html", 
+                     align = align_vec,
+                     row.names = FALSE,
+                     table.attr = "style='width:100%; border-top: 2px solid black; border-bottom: 2px solid black; border-collapse: collapse;'"))
+  
+  # Print Note
+  cat(paste0("\n*Note.* ", note, "\n"))
+  cat("\n<br><br>\n")
+}
+
+#  F.1: Primary ANOVA 
+if (!is.null(appendix_list[["Primary_ANOVA"]])) {
+  print_apa_table(appendix_list[["Primary_ANOVA"]], "F.1", 
+                  "Analysis of Variance for Forward Displacement Error", 
+                  "df = degrees of freedom; MSE = Mean Squared Error.")
+}
+
+#  F.2: Simple Effects 
+if (!is.null(appendix_list[["Simple_Effects"]])) {
+  print_apa_table(appendix_list[["Simple_Effects"]], "F.2", 
+                  "Decomposition of Interaction: Simple Effects of Visibility within Geometry", 
+                  "Contrast represents (Invisible - Visible). P-values are Holm-corrected.")
+}
+
+#  F.3: Simple Effects of Geometry (New Table) 
+if (!is.null(appendix_list[["Simple_Effects_Geo"]])) {
+  print_apa_table(appendix_list[["Simple_Effects_Geo"]], "F.3", 
+                  "Decomposition of Interaction: Simple Effects of Geometry within Visibility", 
+                  "Contrast represents (Linear - Sinusoidal). Tests if geometry matters without visual feedback.")
+}
+
+
+#  B1: Sensitivity Analysis 
+if (!is.null(appendix_list[["Sensitivity_ANOVA_B"]])) {
+  print_apa_table(appendix_list[["Sensitivity_ANOVA_B"]], "B1", 
+                  "Sensitivity Analysis Excluding Global Outliers", 
+                  "Results derived from Dataset B.")
+}
+
+#  F.5 : LMM ANOVA Table (F-tests) 
+if (!is.null(appendix_list[["Primary_LMM_ANOVA"]])) {
+  print_apa_table(appendix_list[["Primary_LMM_ANOVA"]], "F.5", 
+                  "LMM Type III Wald F-tests (Primary Robustness Check)", 
+                  "Degrees of freedom approximated using Kenward-Roger method.")
+}
+
+#  F.6: LMM FIXED EFFECTS (BETAS) 
+if (!is.null(appendix_list[["LMM_Betas_Primary"]])) {
+  print_apa_table(appendix_list[["LMM_Betas_Primary"]], "F.6", 
+                  "LMM Fixed Effects Estimates (Primary Robustness Check)", 
+                  "Predictors are effect-coded (-0.5, 0.5). Intercept represents the grand mean.")
+}
+
+#  F.4: Tests Against Zero 
+if (!is.null(appendix_list[["Tests_Against_Zero"]])) {
+  print_apa_table(appendix_list[["Tests_Against_Zero"]], "F.4", 
+                  "One-Sample T-Tests Against Veridical Target (0 px)", 
+                  "Estimates derived from LMM intercepts.")
+}
+
+#  F.8: Median Split ANOVA 
+if (!is.null(appendix_list[["Sanity_Mixed_ANOVA"]])) {
+  print_apa_table(appendix_list[["Sanity_Mixed_ANOVA"]], "F.8", 
+                  "Secondary Mixed ANOVA (Median Split Group Analysis)", 
+                  "Group (High/Low Shift) included as between-subjects factor.")
+}
+
+#  F.7: Median Split LMM BETAS 
+if (!is.null(appendix_list[["LMM_Betas_Group"]])) {
+  print_apa_table(appendix_list[["LMM_Betas_Group"]], "F.7", 
+                  "LMM Fixed Effects: Categorical Median-Split Analysis", 
+                  "Shows parameter estimates for the Group x Geometry x Visibility model.")
+}
+
+#  F.9: Continuous ANCOVA Table 
+if (!is.null(appendix_list[["Continuous_ANCOVA"]])) {
+  print_apa_table(appendix_list[["Continuous_ANCOVA"]], "F.9", 
+                  "Continuous Moderation Analysis (Split-Half F-tests)", 
+                  "Analysis of Variance table for the continuous model.")
+}
+
+#  F.10: Continuous ANCOVA BETAS 
+if (!is.null(appendix_list[["LMM_Betas_Continuous"]])) {
+  print_apa_table(appendix_list[["LMM_Betas_Continuous"]], "F.10", 
+                  "LMM Fixed Effects: Continuous Split-Half Analysis", 
+                  "Predictor 'shift_z' is the standardized baseline bias from independent trials.")
+}
+
+#  F.11: Continuous Interaction Probes 
+if (!is.null(appendix_list[["Continuous_Probes"]])) {
+  print_apa_table(appendix_list[["Continuous_Probes"]], "F.11", 
+                  "Simple Slopes: Geometry × Visibility Interaction at Levels of Baseline Shift", 
+                  "Values represent the difference (Invisible - Visible) at -1SD, Mean, and +1SD of Baseline Shift.")
+}
+#  Appendix F Placeholder
+cat("# Appendix F: Exploratory Landmark Analysis\n")
+cat("*(Insert your derivative-based landmark analysis figures or tables here.)*\n")
 ```
 
 
