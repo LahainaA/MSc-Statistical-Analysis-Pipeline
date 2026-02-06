@@ -13,7 +13,6 @@
 # Dependency: ggplot2 (auto-installed if missing)
 # ===============================================================
 
-# ---- 0) Setup: keep it lightweight ----
 if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
 suppressPackageStartupMessages(library(ggplot2))
 
@@ -105,9 +104,9 @@ power_mixed_set_within <- function(n_per, k, f, alpha = 0.05, eps = 1.0) {
   if (n_per < 2) return(NA_real_)
   Ntot <- n_per * k
   df1  <- (k - 1)
-  df1p <- eps * df1
+  df1p <- df1  # df1 is between-subjects; epsilon sensitivity applies to df2 only
   df2p <- eps * (Ntot - k)
-  lambda <- Ntot * df1 * f^2
+  lambda <- Ntot * f^2
   Fcrit  <- qf(1 - alpha, df1p, df2p)
   1 - pf(Fcrit, df1p, df2p, ncp = lambda)
 }
