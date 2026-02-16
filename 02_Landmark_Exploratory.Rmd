@@ -2,7 +2,16 @@
 title: "The Landmark Test - Exploratory Analysis"
 author: "Laura Engels"
 date: "2026-01-11"
-output: pdf_document
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: united
+    code_folding: hide
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: '3'
 ---
 
 ```{r setup, include=FALSE}
@@ -51,6 +60,11 @@ model_global <- lmer(errorFwd_px ~ pathGeometryC * pathVisibleC +
                      data = df_clean,
                      control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
 
+cat("\n--- SINGULARITY CHECK (Global Model) ---\n")
+is_sing <- isSingular(model_global)
+print(is_sing)
+if(is_sing) cat("WARNING: Model is Singular! Parameters may be unreliable.\n")
+
 print(anova(model_global))
 
 print("--- POST-HOC: Geometry x Visibility ---")
@@ -58,6 +72,28 @@ emmeans(model_global,
         pairwise ~ pathVisibleC | pathGeometryC,
         at = list(pathVisibleC = c(-0.5, 0.5),
                   pathGeometryC = c(-0.5, 0.5)))
+
+appendix_list <- list()
+
+# Helper function to format ANOVA results with MSE for the text
+report_effect_text <- function(model, effect_name) {
+  res <- nice(model, mse = TRUE, correction = "none") 
+  row <- res[res$Effect == effect_name, ]
+  
+  if (nrow(row) == 0) return(paste("Effect", effect_name, "not found."))
+  
+  f_val <- row$F
+  df1 <- row$df
+  df2 <- row$df.error
+  p_val <- row$p
+  eta <- row$ges
+  mse <- row$MSE
+  
+  p_text <- ifelse(p_val < .001, "p < .001", paste0("p = ", sub("^(-?)0.", "\\1.", sprintf("%.3f", p_val))))
+  
+  sprintf("F(%s, %s) = %s, %s, MSE = %s, ges = %s", 
+          df1, df2, f_val, p_text, mse, eta)
+}
 ```
 
 ##Part 2: The Landmark Test (Derivative Method)
@@ -140,10 +176,12 @@ model_landmark <- lmer(errorFwd_px ~ LandmarkRegion * pathVisibleC + direction +
                        data = df_derivative,
                        control = lmerControl(optimizer = "bobyqa"))
 
+cat("\n--- SINGULARITY CHECK (Landmark Model) ---\n")
+print(isSingular(model_landmark))
+
 print(summary(model_landmark))
 
 print("--- POST-HOC: Landmark Regions ---")
-
 emmeans(model_landmark, 
         pairwise ~ LandmarkRegion | pathVisibleC,
         at = list(pathVisibleC = c(-0.5, 0.5)))
@@ -169,16 +207,23 @@ df_derivative %>%
     x = "Region"
   )
 ```
-
 #Part 3: Mechanisms
 ##eQuestions: Does Speed matter?
 ## Does response latency relate to overshoot?
+
 ```{r mechanisms-speed-latency}
 if("speed_px_s" %in% names(df_clean)){
   print("--- MECHANISM: SPEED ---")
   model_mech <- lmer(errorFwd_px ~ pathGeometryC * speed_px_s + (1 | fileID), 
                      data = df_clean,
                      control = lmerControl(optimizer = "bobyqa"))
+
+ cat("\n--- SINGULARITY CHECK (Global Model) ---\n")
+is_sing <- isSingular(model_global)
+print(is_sing)
+if(is_sing) cat("WARNING: Model is Singular! Parameters may be unreliable.\n")
+
+
   print(summary(model_mech))
 }
 
@@ -194,12 +239,20 @@ if("errorTemp_ms" %in% names(df_clean)){
                         data = df_clean,
                         control = lmerControl(optimizer = "bobyqa"))
   
+  cat("\n--- SINGULARITY CHECK (Global Model) ---\n")
+is_sing <- isSingular(model_global)
+print(is_sing)
+if(is_sing) cat("WARNING: Model is Singular! Parameters may be unreliable.\n")
+
+  
   print(summary(model_latency))
+  
 }
 ```
 
 # Part 4: Robustness Checks
 # Question: Do results depend on the arbitrary 15% cutoff?
+
 ```{r robustness}
 print("--- ROBUSTNESS 1: SENSITIVITY TO CUTOFF (10%, 15%, 20%) ---")
 
@@ -230,9 +283,12 @@ model_cont <- lmer(errorFwd_px ~ abs_slope * pathVisibleC + direction + (1 | fil
                    data = df_derivative,
                    control = lmerControl(optimizer = "bobyqa"))
 
+cat("\n--- SINGULARITY CHECK (Continuous Model) ---\n")
+print(isSingular(model_cont))
+
 print(summary(model_cont))
 
-# --- DISTRIBUTIONAL SUMMARY FOR THESIS ---
+
 df_derivative %>%
   group_by(LandmarkRegion) %>%
   summarise(
@@ -244,5 +300,85 @@ df_derivative %>%
 ```
 ## Caveat: binning can change conclusions depending on where you put boundaries; known issue in methods.
 
+# THESIS APPENDIX TABLES
+
+```{r appendix_tables, echo=TRUE, results='asis'}
+print_apa_table <- function(df, table_num, title, note) {
+  
+  if("Pr(>|t|)" %in% names(df)) df <- df %>% rename(p = `Pr(>|t|)`)
+  if("t value" %in% names(df)) df <- df %>% rename(t = `t value`)
+  if("Std. Error" %in% names(df)) df <- df %>% rename(SE = `Std. Error`)
+  if("Pr(>F)" %in% names(df)) df <- df %>% rename(p = `Pr(>F)`)
+  
+  df <- df %>% mutate(across(where(is.numeric), ~ round(., 3)))
+  
+  # Format p-values specifically
+  if("p" %in% names(df)) {
+    df$p <- ifelse(as.numeric(df$p) < .001, "< .001", 
+                   sub("^(-?)0.", "\\1.", sprintf("%.3f", as.numeric(df$p))))
+  }
+
+  # Add Row Names as a proper column for Betas
+  if(!is.null(row.names(df)) && row.names(df)[1] != "1") {
+    df <- tibble::rownames_to_column(df, "Predictor")
+  }
+
+  n_cols <- ncol(df)
+  align_vec <- c("l", rep("c", n_cols - 1))
+  
+  cat(paste0("\n\n**Table ", table_num, "**\n\n"))
+  cat(paste0("*", title, "*\n\n"))
+  
+  print(knitr::kable(df, 
+                     format = "html", 
+                     align = align_vec,
+                     row.names = FALSE,
+                     table.attr = "style='width:100%; border-top: 2px solid black; border-bottom: 2px solid black; border-collapse: collapse;'"))
+  
+  cat(paste0("\n*Note.* ", note, "\n"))
+  cat("\n<br><br>\n")
+}
+
+# Table F.13: Descriptive Statistics 
+desc_stats <- df_derivative %>%
+  group_by(LandmarkRegion) %>%
+  summarise(
+    N_Trials = n(),
+    Mean = mean(errorFwd_px, na.rm = TRUE),
+    SD = sd(errorFwd_px, na.rm = TRUE),
+    SE = SD / sqrt(n())
+  )
+
+print_apa_table(desc_stats, "F.13", 
+                "Descriptive Statistics of Forward Error by Landmark Region", 
+                "Comparison of turning points (Peaks) vs. trajectory slopes.")
+
+# Table : LMM F-Tests (Landmark Model) 
+anova_landmark <- as.data.frame(anova(model_landmark, ddf = "Kenward-Roger"))
+print_apa_table(anova_landmark, "F.14", 
+                "LMM Type III Wald F-tests: Categorical Landmark Analysis", 
+                "Tests if error differs between Top Peak, Bottom Peak, and Slope regions.")
+
+# Table G.3: LMM Betas (Landmark Model) 
+betas_landmark <- as.data.frame(summary(model_landmark)$coefficients)
+print_apa_table(betas_landmark, "F.15", 
+                "LMM Fixed Effects Estimates: Categorical Landmark Analysis", 
+                "Reference level for Region is 'Slope'. Contrast compares Peaks against the Slope.")
+
+# Table G.4: LMM Continuous Robustness Check 
+betas_cont <- as.data.frame(summary(model_cont)$coefficients)
+print_apa_table(betas_cont, "F.16", 
+                "LMM Fixed Effects: Continuous Slope Analysis (Robustness Check)", 
+                "Tests if forward error scales linearly with the absolute slope of the trajectory derivative.")
+
+# Table G.5: Simple Effects (if Interaction is significant)
+# Only creating the dataframe here, you can decide to include if p < .05
+emmeans_land <- emmeans(model_landmark, ~ LandmarkRegion | pathVisibleC)
+contrasts_land <- as.data.frame(contrast(emmeans_land, method = "pairwise", adjust = "holm"))
+
+print_apa_table(contrasts_land, "F.17", 
+                "Pairwise Comparisons of Landmark Regions", 
+                "Holm-corrected comparisons within visibility conditions.")
+```
 
 
