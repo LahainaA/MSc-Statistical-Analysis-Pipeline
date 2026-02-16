@@ -2,9 +2,15 @@
 title: "Cross-Experiment Comparison: The Grand Finale"
 author: "Analysis Pipeline"
 date: "`r Sys.Date()`"
-output:
-  pdf_document: default
-  html_document: default
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: united
+    code_folding: hide
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: '3'
 ---
 
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
@@ -14,20 +20,21 @@ library(tidyverse)
 library(lmerTest)
 library(emmeans)
 library(knitr)
+
+afex_options(emmeans_model = "multivariate")
 ```
 
 # Prep 
 
 ```{r dataload}
-# 1. Load the data  saved from the previous steps
-#    (These ave the "Group_Median" column!)
+# Load the data saved from the previous steps.
 
 # Paths are generic.
 path_E1 <- "data/processed/E1_Processed_Data.csv"
 path_E2 <- "data/processed/E2_Processed_Data.csv"
 path_E3 <- "data/processed/E3_Processed_Data.csv"
 
-# 2. Load & Create Unique IDs
+# Load & Create Unique IDs
 cols_to_keep <- c("participant_id", "trial", "pathGeometry", "pathVisible", 
                   "errorFwd_px_num", "Group_Median")
 
@@ -87,7 +94,7 @@ print("Mega-Dataset Loaded Successfully.")
 print(paste("Total Participants:", length(unique(df_mega$unique_id))))
 ```
 
-##Visualization: The "Grand Finale" Plots
+## Visualization: The "Grand Finale" Plots
 
 ```{r plot, echo=FALSE}
 ## Visualization: The "Grand Finale" Plots (Methods Figure Style)
@@ -107,7 +114,6 @@ apa_theme <- theme_classic(base_size = 14) +
     strip.background = element_blank(),
     strip.text = element_text(face = "bold", size = 12),
     
-    # Clean Panel Borders
     panel.border = element_rect(color = "black", fill = NA, size = 0.5),
     axis.line = element_blank(),
     
@@ -115,7 +121,6 @@ apa_theme <- theme_classic(base_size = 14) +
     legend.position = "right",
     legend.title = element_text(face = "bold"),
     
-    # X-Axis Spacing
     axis.text.x = element_text(color = "black", size = 11)
   )
 
@@ -129,7 +134,6 @@ ggplot(df_participant_means, aes(x = Experiment, y = mean_error, fill = pathVisi
   # Reference Line
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   
-  # Boxplots
   geom_boxplot(
     position = position_dodge(width = 0.8),
     width = 0.6,
@@ -139,7 +143,6 @@ ggplot(df_participant_means, aes(x = Experiment, y = mean_error, fill = pathVisi
     lwd = 0.4
   ) +
   
-  # Jittered Points
   geom_point(
     aes(group = pathVisible),
     position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8),
@@ -152,7 +155,6 @@ ggplot(df_participant_means, aes(x = Experiment, y = mean_error, fill = pathVisi
   # FACET: Rows = Geometry
   facet_grid(pathGeometry ~ .) +
   
-  # Colors
   scale_fill_manual(name = "Visibility", values = c("invisible" = "white", "visible" = "grey80")) +
   guides(fill = guide_legend(override.aes = list(alpha = 1, color = "black"))) +
   
@@ -211,14 +213,10 @@ ggplot(df_participant_means, aes(x = Experiment, y = mean_error, fill = pathVisi
 ```
 
 ## Primary Inferential Analysis: Mixed ANOVA 
-
-```{r jd, echo=FALSE}
-
-# PRIMARY ANALYSIS: STANDARD MIXED ANOVA
-
 # Goal: Establish general trends (Experiment x Geometry x Visibility)
 # Structure: Aggregated Participant Means
 
+```{r jd, echo=FALSE}
 rm_anova_data <- df_mega %>%
   group_by(unique_id, Experiment, pathGeometry, pathVisible) %>%
   summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
@@ -237,35 +235,30 @@ cat("Participants Included:", length(valid_ids), "\n")
 # RUN MODEL
 # Between: Experiment
 # Within:  pathGeometry, pathVisible
-print("--- Running Primary Repeated Measures ANOVA ---")
+print("--- Running Primary Mixed ANOVA (afex) ---")
 
-primary_model <- aov(
-  mean_error ~ Experiment * pathGeometry * pathVisible + 
-  Error(unique_id / (pathGeometry * pathVisible)), 
-  data = rm_anova_clean
+primary_model <- aov_ez(
+  id = "unique_id",
+  dv = "mean_error",
+  data = rm_anova_clean,
+  between = "Experiment",
+  within = c("pathGeometry", "pathVisible"),
+  anova_table = list(es = "ges", correction = "none") # General Eta Squared
 )
 
-summary(primary_model)
+print(nice(primary_model, mse = FALSE))
 ```
 
 ## Secondary Inferential Analysis: LMM (Subgroups)
-
-```{r secondary_lmm, echo=TRUE}
-
 # Goal: Analyze Subgroup Strategies (Group x Exp x Geo x Vis)
 # Structure: Trial-Level Data with Random Slopes
 
+```{r secondary_lmm, echo=TRUE}
 print("--- Running Secondary Mega-Model (LMM) ---")
 
 # Ensure proper factoring before running the model
 df_mega$Experiment <- factor(df_mega$Experiment, levels = c("Horizontal (E1)", "Upward (E2)", "Downward (E3)"))
 contrasts(df_mega$Experiment) <- contr.sum(3) # Effect coding: 1=E1, 2=E2, 3=Hidden(E3)
-
-cat("\n--- SINGULARITY CHECK ---\n")
-print(isSingular(model_A_trial, tol = 1e-4))
-
-cat("\n--- CONVERGENCE MESSAGES ---\n")
-print(model_A_trial@optinfo$conv$lme4$messages)
 
 # Run the Model
 model_mega <- lmer(
@@ -274,6 +267,12 @@ model_mega <- lmer(
   data = df_mega,
   control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
+
+cat("\n--- SINGULARITY CHECK ---\n")
+print(isSingular(model_A_trial, tol = 1e-4))
+
+cat("\n--- CONVERGENCE MESSAGES ---\n")
+print(model_A_trial@optinfo$conv$lme4$messages)
 
 # 1. FIXED EFFECTS (BETA WEIGHTS)
 print("--- Fixed Effects Coefficients (Beta Weights) ---")
@@ -330,7 +329,6 @@ print(pairs(emm_vis_by_geo_group, adjust = "bonferroni"))
 #   - MODEL: Adds 'Experiment' to test the 4-way interaction.
 
 ```{r cross_ancova_splithalf, echo=TRUE, message=FALSE, warning=FALSE}
-
 df_split_prep <- df_mega %>%
   mutate(is_odd_trial = (trial %% 2) != 0)
 
@@ -381,6 +379,9 @@ model_ancova_mega <- lmer(
   data = df_ancova_valid,
   control = lmerControl(optimizer = "bobyqa")
 )
+# --- SINGULARITY CHECK (Added) ---
+cat("\n--- SINGULARITY CHECK ---\n")
+print(isSingular(model_ancova_mega, tol = 1e-4))
 
 cat("\n--- Cross-Experiment ANCOVA Results (Split-Half Validated) ---\n")
 # ANOVA table with Kenward-Roger correction
@@ -430,3 +431,89 @@ ggplot(df_ancova_valid, aes(x = shift_linear_invis_odd, y = mean_error, color = 
     legend.position = "bottom"
   )
 ```
+
+# Appendix tables
+
+```{r appendix_tables, echo=TRUE, results='asis'}
+print_apa_table <- function(df, table_num, title, note) {
+  
+  # Clean up column names standard in lmerTest output
+  if("Pr(>|t|)" %in% names(df)) df <- df %>% rename(p = `Pr(>|t|)`)
+  if("t value" %in% names(df)) df <- df %>% rename(t = `t value`)
+  if("Std. Error" %in% names(df)) df <- df %>% rename(SE = `Std. Error`)
+  if("Pr(>F)" %in% names(df)) df <- df %>% rename(p = `Pr(>F)`)
+  
+  df <- df %>% mutate(across(where(is.numeric), ~ round(., 3)))
+  
+  if("p" %in% names(df)) {
+    df$p <- ifelse(as.numeric(df$p) < .001, "< .001", 
+                   sub("^(-?)0.", "\\1.", sprintf("%.3f", as.numeric(df$p))))
+  }
+
+  # Add Row Names as a proper column for Betas
+  if(!is.null(row.names(df)) && row.names(df)[1] != "1") {
+    df <- tibble::rownames_to_column(df, "Predictor")
+  }
+
+  n_cols <- ncol(df)
+  align_vec <- c("l", rep("c", n_cols - 1))
+  
+  cat(paste0("\n\n**Table ", table_num, "**\n\n"))
+  cat(paste0("*", title, "*\n\n"))
+  
+  print(knitr::kable(df, 
+                     format = "html", 
+                     align = align_vec,
+                     row.names = FALSE,
+                     table.attr = "style='width:100%; border-top: 2px solid black; border-bottom: 2px solid black; border-collapse: collapse;'"))
+  
+  cat(paste0("\n*Note.* ", note, "\n"))
+  cat("\n<br><br>\n")
+}
+
+# Table E4.1: Omnibus Mixed ANOVA 
+appendix_list <- list()
+appendix_list[["Omnibus_ANOVA"]] <- nice(primary_model, mse = FALSE)
+
+print_apa_table(appendix_list[["Omnibus_ANOVA"]], "F.53", 
+                "Mixed Analysis of Variance Comparing Experiments 1, 2, and 3", 
+                "Analysis performed on participant means. Between-subjects factor: Experiment.")
+
+# Table E4.2: Mean Forward Displacement by Experiment 
+means_table <- rm_anova_clean %>%
+  group_by(Experiment, pathGeometry) %>%
+  summarise(
+    Mean = mean(mean_error, na.rm=TRUE),
+    SE = sd(mean_error, na.rm=TRUE) / sqrt(n()),
+    .groups = "drop"
+  )
+
+print_apa_table(means_table, "F.54", 
+                "Mean Forward Displacement by Experiment and Path Geometry", 
+                "Aggregated across visibility conditions.")
+
+# Table E4.3: Continuous ANCOVA (Grand Finale Model)
+ancova_table <- as.data.frame(anova(model_ancova_mega, ddf = "Kenward-Roger"))
+print_apa_table(ancova_table, "F.55", 
+                "Cross-Experiment Continuous Moderation Analysis (F-tests)", 
+                "Tests if the Baseline Shift effect is consistent across Experiments (4-way interaction).")
+
+# Table E4.4: Random Effects Structure 
+var_components <- as.data.frame(VarCorr(model_mega)) %>%
+  select(grp, var1, var2, vcov, sdcor) %>%
+  mutate(vcov = round(vcov, 3), sdcor = round(sdcor, 3)) %>%
+  rename(Group = grp, Term1 = var1, Term2 = var2, Variance = vcov, SD_Corr = sdcor)
+
+print_apa_table(var_components, "F.56", 
+                "Random Effects Structure and Variance Estimates (Cross-Experiment Model)", 
+                "Shows the variability in intercepts and slopes across participants.")
+
+# NEW TABLE E4.5: LMM FIXED EFFECTS
+# This extracts the b-values, SE, df, t, and p-values
+lmm_fixed <- as.data.frame(summary(model_mega)$coefficients)
+
+print_apa_table(lmm_fixed, "F.57", 
+                "LMM Fixed Effects Estimates (Cross-Experiment Mega-Model)", 
+                "Experiment contrasts are sum-to-zero (Exp 1 vs Grand Mean; Exp 2 vs Grand Mean). Path Geometry: Sinusoidal (0.5) vs Linear (-0.5). Visibility: Visible (0.5) vs Invisible (-0.5). Group: Low Shift (0.5) vs High Shift (-0.5).")
+```
+
