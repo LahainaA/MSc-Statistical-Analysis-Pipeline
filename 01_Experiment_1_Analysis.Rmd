@@ -8,7 +8,11 @@ output:
     toc: true
     toc_depth: 3
     theme: united
-    code_folding: show
+    code_folding: hide
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: '3'
 ---
 
 ```{r setup, include=FALSE}
@@ -28,12 +32,35 @@ library(gridExtra)
 
 # Set Sums of Squares to Type 3 
 afex_options(type = 3)
+
+# Initialize list to store tables for Appendix
+appendix_list <- list()
+
+# Helper function to format ANOVA results with MSE for the text
+report_effect_text <- function(model, effect_name) {
+  res <- nice(model, mse = TRUE, correction = "none") 
+  row <- res[res$Effect == effect_name, ]
+  
+  if (nrow(row) == 0) return(paste("Effect", effect_name, "not found."))
+  
+  f_val <- row$F
+  df1 <- row$df
+  df2 <- row$df.error
+  p_val <- row$p
+  eta <- row$ges
+  mse <- row$MSE
+  
+  p_text <- ifelse(p_val < .001, "p < .001", paste0("p = ", sub("^(-?)0.", "\\1.", sprintf("%.3f", p_val))))
+  
+  sprintf("F(%s, %s) = %s, %s, MSE = %s, ges = %s", 
+          df1, df2, f_val, p_text, mse, eta)
+}
 ```
 
 # Data Loading & Cleaning 
 
 ```{r load, echo=FALSE}
-# This pipeline is identical for Exp 1 (Horizontal), Exp 2 (Upward), and Exp 3 (Downward). It was run individually, each in a different rmd file. The below repre
+# This pipeline is identical for Exp 1 (Horizontal), Exp 2 (Upward), and Exp 3 (Downward). It was run individually, each in a different rmd file. The below represents Exp 1.
 
 # Data paths are generic.
 # file_path <- "data/raw_data/experiment_1_horizontal.csv"
@@ -46,7 +73,6 @@ rm1_raw <- read_csv(filename_RM1, col_types = cols(
   fileID      = col_character()
 ))
 
-# Initial formatting & Normalization 
 # Normalize case to prevent data loss (NAs)
 df_initial_RM1 <- rm1_raw %>%
   rename(participant_id = fileID) %>%
@@ -263,7 +289,6 @@ ggplot(df_val_checked %>% filter(pathGeometry == "linear"),
   theme_bw()
 ```
 
-
 # Step 3: Condition-Wise Subject Check 
 ## Criteria: Detect participants who are extreme outliers (> 2.5 Group SD) in specific conditions only.
 
@@ -294,8 +319,8 @@ if (nrow(outliers_cond) > 0) {
 }
 ```
 
-
 # Spatial Density Heatmap 
+
 ```{r density_heatmap, echo=FALSE, fig.width=10, fig.height=8}
 ggplot(df_analysis_A, aes(x = errorFwd_px_num, y = errorOrth_px)) +
   
@@ -520,7 +545,7 @@ if(length(dropped_ids) > 0) {
   print(dropped_ids)
 }
 
-# 5. RUN RM-ANOVA (afex)
+# RUN RM-ANOVA (afex)
 model_anova <- aov_ez(
   id = "participant_id",
   dv = "mean_error",
@@ -529,7 +554,6 @@ model_anova <- aov_ez(
   anova_table = list(es = "ges", correction = "none")
 )
 
-# Store table for appendix instead of printing it here
 appendix_list[["Primary_ANOVA"]] <- nice(model_anova, mse = TRUE)
 
 cat("\n--- Primary ANOVA Results ---\n")
@@ -568,7 +592,6 @@ appendix_list[["Simple_Effects_Geo"]] <- as.data.frame(summary(simple_effects_B,
 
 ```{r trial_level_lme, echo=TRUE}
 # 1. CONTRAST CODING
-# Ensure factors are set
 df_analysis_A$pathGeometryC <- ifelse(df_analysis_A$pathGeometry == "sinusoidal", 0.5, -0.5)
 df_analysis_A$pathVisibleC  <- ifelse(df_analysis_A$pathVisible  == "visible",    0.5, -0.5)
 
@@ -622,7 +645,6 @@ print(testOutliers(dharma_A))
 ```
 # SENSITIVITY CHECK: DATASET B (Global Outliers Removed)
 # Rationale: Ensure findings hold when global outliers are excluded.
-
 
 ```{r sensitivity_check_B, echo=TRUE}
 if(length(flagged_global) > 0) {
@@ -698,7 +720,7 @@ if(length(flagged_global) > 0) {
 # SECOND-LEVEL ANALYSIS: STEP 1: Group Splits based on Linear Baseline
 
 ```{r step1info, echo=TRUE}
-# --- Step 1: Define Groups using LINEAR Baseline data ---
+# Define Groups using LINEAR Baseline data 
 linear_baseline <- df_analysis_A %>%
   filter(pathGeometry == "linear", pathVisible == "invisible") %>%
   group_by(participant_id) %>%
@@ -907,7 +929,6 @@ print(table(ppt_groups$Group_Absolute))
 print(paste0("--- Method B: Median Split (Median = ", round(median_val, 2), "px) ---"))
 print(table(ppt_groups$Group_Median))
 
-# --- FIX: Define df_grouped for Initial Plots ---
 df_grouped <- df_analysis_A %>%
   left_join(ppt_groups %>% select(participant_id, Group_Absolute, Group_Median), by = "participant_id") %>%
   filter(pathGeometry == "sinusoidal")
@@ -966,7 +987,6 @@ print("--- Test Against 0: Low Shift Group ---")
 print(t_low)
 ```
 
-
 ## SECONDARY (EXPLORATORY): Continuous baseline-shift moderation
 # Method: Continuous moderation model on FULL 2x2 data; Baseline computed from Linear-Invisible trials.
 
@@ -1017,7 +1037,7 @@ emm_full <- emmeans(
 cat("\n--- Interaction Pattern at -1SD, Mean, +1SD Baseline Shift ---\n")
 print(contrast(emm_full, interaction = "pairwise", adjust="holm"))
 
-# --- SLOPE OF THE INTERACTION ---
+# SLOPE OF THE INTERACTION 
 cat("\n--- Slope of the Geometry x Visibility interaction vs Baseline Shift ---\n")
 model_coefs <- summary(model_full_mod)$coefficients
 # Regex to find the 3-way interaction term in any order
@@ -1041,7 +1061,7 @@ if(length(target_row) == 1) {
 # Rationale: descriptive participant-level cross-check of the GeometryxVisibility interaction.
 # Not used for inference (primary inference comes from the LMM).
 
-# 1. Calculate the "Interaction Score" per participant
+# Calculate the "Interaction Score" per participant
 contrast_scores <- df_analysis_A %>%
   group_by(participant_id, pathGeometry, pathVisible) %>%
   summarise(mean_error = mean(errorFwd_px_num, na.rm=TRUE), .groups = "drop") %>%
@@ -1060,7 +1080,7 @@ contrast_scores <- df_analysis_A %>%
   ) %>%
   left_join(baseline_shift, by = "participant_id")
 
-# 2. Run Simple Linear Regressions
+# Run Simple Linear Regressions
 lm_check_inter <- lm(geo_vis_interaction_score ~ shift_z, data = contrast_scores)
 lm_check_geo   <- lm(geo_effect_score ~ shift_z, data = contrast_scores)
 
@@ -1071,7 +1091,7 @@ print(summary(lm_check_geo)$coefficients)
 cat("\nDoes Baseline Shift predict the size of the Geometry x Visibility Interaction?\n")
 print(summary(lm_check_inter)$coefficients)
 
-# 3. Correlation Plot
+# Correlation Plot
 p_check <- ggplot(contrast_scores, aes(x = shift_linear_invis, y = geo_vis_interaction_score)) +
   geom_point() +
   geom_smooth(method = "lm", color = "blue", fill = "lightblue") +
@@ -1087,20 +1107,18 @@ p_check <- ggplot(contrast_scores, aes(x = shift_linear_invis, y = geo_vis_inter
 print(p_check)
 ```
 
-```{r sanity_check_anova_secondary, echo=TRUE}
 # SANITY CHECK: SECONDARY MIXED ANOVA
 # Rationale: Confirm that the Group x Geometry x Visibility interaction 
 # holds up under standard OLS assumptions (to rule out LME artifacts).
 
-# 1. PREPARE DATA
-# We need the aggregated means from the grouped dataset
+```{r sanity_check_anova_secondary, echo=TRUE}
 # Factors: Group (Between), Geometry (Within), Visibility (Within)
 mixed_anova_data <- df_grouped_full %>%
   group_by(participant_id, Group_Median, pathGeometry, pathVisible) %>%
   summarise(mean_error = mean(errorFwd_px_num, na.rm = TRUE), .groups = "drop")
 
-# 2. CHECK FOR BALANCE
-# We need complete 2x2 data for every participant
+# CHECK FOR BALANCE
+# complete 2x2 data for every participant
 completeness_check_group <- mixed_anova_data %>%
   count(participant_id) %>%
   mutate(is_complete = n == 4)
@@ -1118,7 +1136,7 @@ if(length(dropped_ids_group) > 0) {
   cat("Status: Balanced Dataset for Mixed ANOVA.\n")
 }
 
-# 3. RUN MIXED ANOVA (Switched to aov_ez to capture MSE)
+# RUN MIXED ANOVA (Switched to aov_ez to capture MSE)
 cat("\n--- Running Standard Mixed ANOVA (Group x Geo x Vis) ---\n")
 
 mixed_model_sanity <- aov_ez(
@@ -1133,11 +1151,8 @@ mixed_model_sanity <- aov_ez(
 # SAVE FOR APPENDIX
 appendix_list[["Sanity_Mixed_ANOVA"]] <- nice(mixed_model_sanity, mse = TRUE)
 
-# 4. REPORT
-# We specifically want to see the 3-way interaction here
 cat("Group x Geo x Vis Interaction: ", report_effect_text(mixed_model_sanity, "Group_Median:pathGeometry:pathVisible"), "\n")
 
-# Print full results briefly for context
 print(mixed_model_sanity)
 cat("\n--- COMPARISON GUIDE ---\n")
 cat("Look for the 3-way interaction: Group_Median:pathGeometry:pathVisible\n")
@@ -1152,13 +1167,12 @@ cat("Does the p-value match the LME conclusion?\n")
 #   - DV (Mean Error) is calculated from the REMAINING trials (Even Linear-Inv + All others).
 
 ```{r secondary_ancova_splithalf, echo=TRUE}
-# 1. SETUP: MARK ODD/EVEN TRIALS 
-# We ensure the trial column is numeric for modulo operation
+# MARK ODD/EVEN TRIALS 
 df_split_prep <- df_analysis_A %>%
   mutate(is_odd_trial = (trial %% 2) != 0)
 
 # CALCULATE INDEPENDENT COVARIATE (Predictor) 
-# We use ONLY the ODD trials of the Linear-Invisible condition
+# Use ONLY the ODD trials of the Linear-Invisible condition
 baseline_shift_indep <- df_split_prep %>%
   filter(pathGeometry == "linear", pathVisible == "invisible", is_odd_trial == TRUE) %>%
   group_by(participant_id) %>%
@@ -1191,7 +1205,7 @@ df_ancova_valid <- df_ancova_trials %>%
 df_ancova_valid$pathGeometryC <- ifelse(df_ancova_valid$pathGeometry == "sinusoidal", 0.5, -0.5)
 df_ancova_valid$pathVisibleC  <- ifelse(df_ancova_valid$pathVisible  == "visible",    0.5, -0.5)
 
-# RUN MIXED ANCOVA (LME on Cell Means) 
+# RUN MIXED ANCOVA 
 # Formula: Error ~ Geometry * Visibility * Baseline_Shift + (1 | Participant)
 # Note: With cell means, we only fit random intercepts.
 model_ancova_valid <- lmer(
@@ -1274,20 +1288,17 @@ ggplot(plot_data_valid, aes(x = pathGeometry, y = mean_error, fill = pathVisible
 
 ggplot(df_ancova_valid, aes(x = shift_linear_invis_odd, y = mean_error, color = pathVisible, fill = pathVisible)) +
   
-  # 1. Reference lines (Zero error / Zero shift)
+  # Reference lines (Zero error / Zero shift)
   geom_hline(yintercept = 0, linetype = "solid", color = "grey80") +
   geom_vline(xintercept = 0, linetype = "solid", color = "grey80") +
 
-  # 2. Individual Participant Points (Jittered slightly to avoid overlap)
   geom_point(alpha = 0.6, size = 2) +
 
-  # 3. Linear Regression Lines with Confidence Intervals
   geom_smooth(method = "lm", alpha = 0.2, fullrange = TRUE) +
 
-  # 4. Facet by Geometry to see the effect in Linear vs Sinusoidal
+  # Facet by Geometry to see the effect in Linear vs Sinusoidal
   facet_wrap(~pathGeometry) +
 
-  # 5. Styling (High Contrast for Lines)
   scale_color_manual(values = c("invisible" = "black", "visible" = "#E69F00"), name = "Visibility") +
   scale_fill_manual(values = c("invisible" = "grey20", "visible" = "#E69F00"), name = "Visibility") +
 
@@ -1387,7 +1398,7 @@ if (!is.null(appendix_list[["Simple_Effects"]])) {
                   "Contrast represents (Invisible - Visible). P-values are Holm-corrected.")
 }
 
-#  F.3: Simple Effects of Geometry (New Table) 
+#  F.3: Simple Effects of Geometry 
 if (!is.null(appendix_list[["Simple_Effects_Geo"]])) {
   print_apa_table(appendix_list[["Simple_Effects_Geo"]], "F.3", 
                   "Decomposition of Interaction: Simple Effects of Geometry within Visibility", 
@@ -1459,7 +1470,7 @@ if (!is.null(appendix_list[["Continuous_Probes"]])) {
 }
 #  Appendix F Placeholder
 cat("# Appendix F: Exploratory Landmark Analysis\n")
-cat("*(Insert your derivative-based landmark analysis figures or tables here.)*\n")
+cat("*(Insert derivative-based landmark analysis figures or tables here.)*\n")
 ```
 
 
